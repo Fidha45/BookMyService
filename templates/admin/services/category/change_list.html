@@ -1,0 +1,46 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls admin_list static %}
+
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin-service-management.css' %}"><link rel="stylesheet" href="{% static 'admin-categories.css' %}">{% endblock %}
+
+{# Keep the global admin navigation on every other page, but give this
+   management page the full viewport width. The Home breadcrumb remains. #}
+{% block nav-sidebar %}{% endblock %}
+
+{% block breadcrumbs %}
+  <div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a><span aria-hidden="true"> › </span><span aria-current="page">Categories</span></div>
+{% endblock %}
+
+{% block content_title %}
+  <div class="category-page-heading">
+    <div>
+      <h1>Categories</h1>
+      <p>Manage service categories. Add or edit categories and review their service availability.</p>
+    </div>
+    <ul class="object-tools category-heading-actions">{% change_list_object_tools %}</ul>
+  </div>
+{% endblock %}
+
+{% block object-tools %}{% endblock %}
+
+{% block content %}
+  <section class="category-metrics" aria-label="Category statistics">
+    <article class="category-metric"><span class="category-metric-icon icon-purple" aria-hidden="true">▦</span><div><span>Total categories</span><strong>{{ category_metrics.total }}</strong></div></article>
+    <article class="category-metric"><span class="category-metric-icon icon-green" aria-hidden="true">✓</span><div><span>With active services</span><strong>{{ category_metrics.available }}</strong></div></article>
+    <article class="category-metric"><span class="category-metric-icon icon-rose" aria-hidden="true">×</span><div><span>Without active services</span><strong>{{ category_metrics.without_active }}</strong></div></article>
+    <article class="category-metric"><span class="category-metric-icon icon-purple" aria-hidden="true">◆</span><div><span>Linked services</span><strong>{{ category_metrics.services }}</strong></div></article>
+  </section>
+  {{ block.super }}
+{% endblock %}
+
+{% block search %}
+  <div id="toolbar" class="category-toolbar">
+    <form id="changelist-search" method="get" role="search">
+      <label class="visually-hidden" for="category-search">Search categories by name or slug</label>
+      <input type="search" size="40" name="q" value="{{ cl.query }}" id="category-search" placeholder="Search categories by name or slug…">
+      <button type="submit" class="category-search-button">Search</button>
+      <a class="category-reset-button" href="{% url cl.opts|admin_urlname:'changelist' %}">Reset</a>
+    </form>
+  </div>
+{% endblock %}
+

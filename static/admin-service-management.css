@@ -1,0 +1,15 @@
+/* Shared navigation and filter polish for the unified Services/Categories area. */
+body.app-services.model-service.change-list .service-management-tabs,
+body.app-services.model-category.change-list .service-management-tabs { display:flex; gap:6px; margin:0 0 18px; padding:0 0 1px; border-bottom:1px solid var(--bms-border); }
+body.app-services.model-service.change-list .service-management-tabs a,
+body.app-services.model-category.change-list .service-management-tabs a { display:inline-flex; min-height:38px; align-items:center; padding:7px 14px; border-bottom:3px solid transparent; border-radius:8px 8px 0 0; color:var(--bms-muted); font-size:.82rem; font-weight:650; text-decoration:none; }
+body.app-services.model-service.change-list .service-management-tabs a:hover,
+body.app-services.model-category.change-list .service-management-tabs a:hover { background:var(--bms-lavender); color:var(--bms-purple); }
+body.app-services.model-service.change-list .service-management-tabs a.is-active,
+body.app-services.model-category.change-list .service-management-tabs a.is-active { border-bottom-color:var(--bms-purple); color:var(--bms-purple); }
+body.app-services.model-service.change-list .service-management-tabs a:focus-visible,
+body.app-services.model-category.change-list .service-management-tabs a:focus-visible { outline:3px solid var(--bms-focus); outline-offset:2px; }
+@media (max-width:600px) {
+  body.app-services.model-service.change-list .service-management-tabs,
+  body.app-services.model-category.change-list .service-management-tabs { margin-bottom:14px; }
+}

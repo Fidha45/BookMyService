@@ -1,0 +1,18 @@
+{% load i18n %}
+<details data-filter-title="{{ title }}" open>
+  <summary>{{ title }}</summary>
+  <form class="service-price-filter" method="get" action="{% url 'admin:services_service_changelist' %}">
+    {% for choice in choices %}
+      {% for key, value in spec.request.GET.items %}
+        {% if key != "price__gte" and key != "price__lte" and key != "p" %}
+          <input type="hidden" name="{{ key }}" value="{{ value }}">
+        {% endif %}
+      {% endfor %}
+      <label for="service-price-min">{% translate "Minimum price" %}</label>
+      <input id="service-price-min" type="number" name="price__gte" min="0" step="0.01" inputmode="decimal" value="{{ choice.min_price }}" placeholder="Min ₹">
+      <label for="service-price-max">{% translate "Maximum price" %}</label>
+      <input id="service-price-max" type="number" name="price__lte" min="0" step="0.01" inputmode="decimal" value="{{ choice.max_price }}" placeholder="Max ₹">
+      <button type="submit">{% translate "Apply" %}</button>
+    {% endfor %}
+  </form>
+</details>

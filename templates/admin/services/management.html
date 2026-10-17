@@ -1,0 +1,67 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{% if management_section == 'categories' %}Categories{% else %}Services{% endif %} | BookMyService Admin{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin-management.css' %}">{% endblock %}
+{% block content_title %}{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a><span aria-hidden="true">›</span><span>Service Management</span><span aria-hidden="true">›</span><span aria-current="page">{% if management_section == 'categories' %}Categories{% else %}Services{% endif %}</span></div>{% endblock %}
+{% block content %}
+<main class="bms-management" id="content-main">
+  <header class="bms-management-heading">
+    <div><span class="bms-management-eyebrow">SERVICE MANAGEMENT</span><h1>{% if management_section == 'categories' %}Categories{% else %}Services{% endif %}</h1><p>{% if management_section == 'categories' %}Organize service listings and review category availability.{% else %}Review, update and manage services offered by providers.{% endif %}</p></div>
+  </header>
+  <nav class="bms-section-shortcuts" aria-label="Service management pages">{% if services_allowed %}<a class="{% if management_section != 'categories' %}is-current{% endif %}" href="{% url 'admin:services_service_management' %}" {% if management_section != 'categories' %}aria-current="page"{% endif %}>Services</a>{% endif %}{% if categories_allowed %}<a class="{% if management_section == 'categories' %}is-current{% endif %}" href="{% url 'admin:services_category_management' %}" {% if management_section == 'categories' %}aria-current="page"{% endif %}>Categories</a>{% endif %}</nav>
+
+  {% if management_section != 'categories' and services_allowed %}
+  <section class="bms-management-section" id="services" aria-labelledby="services-heading">
+    <div class="bms-section-heading"><div><span class="bms-management-eyebrow">PROVIDER LISTINGS</span><h2 id="services-heading">Service listings</h2><p>Review and manage services offered by providers.</p></div><a class="bms-primary-button" href="{{ service_add_url }}"><span aria-hidden="true">＋</span> Add service</a></div>
+    <div class="bms-summary-grid" aria-label="Service statistics">
+      <article class="bms-summary-card"><span>Total services</span><strong>{{ service_metrics.total }}</strong></article>
+      <article class="bms-summary-card is-green"><span>Active services</span><strong>{{ service_metrics.active }}</strong></article>
+      <article class="bms-summary-card is-rose"><span>Inactive services</span><strong>{{ service_metrics.inactive }}</strong></article>
+      <article class="bms-summary-card"><span>Categories with services</span><strong>{{ service_metrics.categories }}</strong></article>
+    </div>
+    <div class="bms-management-card">
+      <form class="bms-filter-form" method="get" action="{{ request.path }}#services">
+        <div class="bms-search-field"><label for="service-q">Search services</label><input id="service-q" type="search" name="service_q" value="{{ service_query }}" placeholder="Name, provider, category or description"></div>
+        <div><label for="service-status">Status</label><select id="service-status" name="service_status"><option value="">All statuses</option><option value="active" {% if service_status == 'active' %}selected{% endif %}>Active</option><option value="inactive" {% if service_status == 'inactive' %}selected{% endif %}>Inactive</option></select></div>
+        <div><label for="service-provider">Provider</label><select id="service-provider" name="service_provider"><option value="">All providers</option>{% for provider in providers %}<option value="{{ provider.pk }}" {% if service_provider == provider.pk|stringformat:'s' %}selected{% endif %}>{{ provider.display_name }}</option>{% endfor %}</select></div>
+        <div><label for="service-category">Category</label><select id="service-category" name="service_category"><option value="">All categories</option>{% for category in categories %}<option value="{{ category.pk }}" {% if service_category == category.pk|stringformat:'s' %}selected{% endif %}>{{ category.name }}</option>{% endfor %}</select></div>
+        <div class="bms-price-filter"><label for="service-price-min">Price range (₹)</label><span><input id="service-price-min" type="number" min="0" step="0.01" name="service_price_min" value="{{ service_price_min }}" placeholder="Min"><input aria-label="Maximum price" type="number" min="0" step="0.01" name="service_price_max" value="{{ service_price_max }}" placeholder="Max"></span></div>
+        <button class="bms-primary-button" type="submit">Apply filters</button><a class="bms-secondary-button" href="{{ service_reset_url }}">Reset</a>
+      </form>
+      {% if services_list_allowed %}<div class="bms-table-scroll"><table class="bms-management-table"><thead><tr><th>#</th><th>Service</th><th>Provider</th><th>Category</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+      {% for service in service_page %}<tr><td>{{ service.admin_row_number }}</td><td><strong>{{ service.name }}</strong><small>{{ service.description|truncatechars:72 }}</small></td><td>{{ service.provider.display_name }}</td><td>{{ service.category.name }}</td><td>₹{{ service.price|floatformat:2 }}</td><td><span class="bms-status-badge {% if service.is_active %}is-active{% else %}is-inactive{% endif %}">{{ service.is_active|yesno:"Active,Inactive" }}</span></td><td><div class="bms-row-actions">
+        {% if perms.services.change_service %}<a class="bms-icon-button is-edit" href="{% url service_change_url_name service.pk %}" aria-label="Edit {{ service.name }}">Edit</a><form method="post" action="{% url service_toggle_url_name service.pk %}">{% csrf_token %}<input type="hidden" name="service_q" value="{{ service_query }}"><input type="hidden" name="service_status" value="{{ service_status }}"><input type="hidden" name="service_provider" value="{{ service_provider }}"><input type="hidden" name="service_category" value="{{ service_category }}"><input type="hidden" name="service_price_min" value="{{ service_price_min }}"><input type="hidden" name="service_price_max" value="{{ service_price_max }}"><button class="bms-inline-action" type="submit" aria-label="{% if service.is_active %}Deactivate{% else %}Activate{% endif %} {{ service.name }}">{% if service.is_active %}Deactivate{% else %}Activate{% endif %}</button></form>{% endif %}
+        {% if perms.services.delete_service %}<a class="bms-icon-button is-delete" href="{% url service_delete_url_name service.pk %}" aria-label="Delete {{ service.name }}">Delete</a>{% endif %}
+      </div></td></tr>{% empty %}<tr><td colspan="7"><div class="bms-empty-state"><strong>No services found.</strong><span>Adjust your search or filters, or add a service.</span></div></td></tr>{% endfor %}
+      </tbody></table></div>{% else %}<div class="bms-empty-state">You can add services, but your account does not have permission to view existing records.</div>{% endif %}
+      <nav class="bms-pagination" aria-label="Service pages"><span>{% if service_page.paginator.count %}Showing {{ service_page.start_index }}–{{ service_page.end_index }} of {{ service_page.paginator.count }} services{% else %}Showing 0 services{% endif %}</span><div>{% if service_previous_url %}<a href="{{ service_previous_url }}" aria-label="Previous services">‹</a>{% endif %}<span>Page {{ service_page.number }} of {{ service_page.paginator.num_pages }}</span>{% if service_next_url %}<a href="{{ service_next_url }}" aria-label="Next services">›</a>{% endif %}</div></nav>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if management_section == 'categories' and categories_allowed %}
+  <section class="bms-management-section" id="categories" aria-labelledby="categories-heading">
+    <div class="bms-section-heading"><div><span class="bms-management-eyebrow">SERVICE ORGANIZATION</span><h2 id="categories-heading">Category directory</h2><p>Organize service listings and review category availability. Category descriptions are not stored in the current data model.</p></div><a class="bms-primary-button" href="{{ category_add_url }}"><span aria-hidden="true">＋</span> Add category</a></div>
+    <div class="bms-summary-grid" aria-label="Category statistics">
+      <article class="bms-summary-card"><span>Total categories</span><strong>{{ category_metrics.total }}</strong></article>
+      <article class="bms-summary-card is-green"><span>With active services</span><strong>{{ category_metrics.available }}</strong></article>
+      <article class="bms-summary-card is-rose"><span>Without active services</span><strong>{{ category_metrics.without_active }}</strong></article>
+      <article class="bms-summary-card"><span>Linked services</span><strong>{{ category_metrics.services }}</strong></article>
+    </div>
+    <div class="bms-management-card">
+      <form class="bms-filter-form bms-category-filter-form" method="get" action="{{ request.path }}#categories">
+        <div class="bms-search-field"><label for="category-q">Search categories</label><input id="category-q" type="search" name="category_q" value="{{ category_query }}" placeholder="Category name or slug"></div>
+        <div><label for="category-availability">Listing availability</label><select id="category-availability" name="category_availability"><option value="">All categories</option><option value="available" {% if category_availability == 'available' %}selected{% endif %}>Has active services</option><option value="unavailable" {% if category_availability == 'unavailable' %}selected{% endif %}>No active services</option></select></div>
+        <button class="bms-primary-button" type="submit">Apply filters</button><a class="bms-secondary-button" href="{{ category_reset_url }}">Reset</a>
+      </form>
+      {% if categories_list_allowed %}<div class="bms-table-scroll"><table class="bms-management-table"><thead><tr><th>#</th><th>Category</th><th>Description</th><th>Linked services</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+      {% for category in category_page %}<tr><td>{{ category.admin_row_number }}</td><td><strong>{{ category.name }}</strong><small>{{ category.slug }}</small></td><td><span class="bms-unavailable-field" title="Category descriptions are not stored in the current data model.">—</span></td><td><strong>{{ category.linked_service_count }}</strong></td><td><span class="bms-status-badge {% if category.active_service_count %}is-active{% else %}is-inactive{% endif %}">{% if category.active_service_count %}Available{% else %}No active services{% endif %}</span></td><td><div class="bms-row-actions">{% if perms.services.change_category %}<a class="bms-icon-button is-edit" href="{% url category_change_url_name category.pk %}" aria-label="Edit {{ category.name }}">Edit</a>{% endif %}{% if perms.services.delete_category %}<a class="bms-icon-button is-delete" href="{% url category_delete_url_name category.pk %}" aria-label="Delete {{ category.name }}">Delete</a>{% endif %}</div></td></tr>{% empty %}<tr><td colspan="6"><div class="bms-empty-state"><strong>No categories found.</strong><span>Adjust your search or filters, or add a category.</span></div></td></tr>{% endfor %}
+      </tbody></table></div>{% else %}<div class="bms-empty-state">You can add categories, but your account does not have permission to view existing records.</div>{% endif %}
+      <nav class="bms-pagination" aria-label="Category pages"><span>{% if category_page.paginator.count %}Showing {{ category_page.start_index }}–{{ category_page.end_index }} of {{ category_page.paginator.count }} categories{% else %}Showing 0 categories{% endif %}</span><div>{% if category_previous_url %}<a href="{{ category_previous_url }}" aria-label="Previous categories">‹</a>{% endif %}<span>Page {{ category_page.number }} of {{ category_page.paginator.num_pages }}</span>{% if category_next_url %}<a href="{{ category_next_url }}" aria-label="Next categories">›</a>{% endif %}</div></nav>
+    </div>
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

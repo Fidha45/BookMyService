@@ -1,0 +1,17 @@
+{{ event_title }}
+
+Hi {{ recipient_name }},
+
+{{ intro }}
+
+Service: {{ service_name }}
+Booking reference: {{ booking_reference }}
+Customer: {{ customer_name }}
+Provider: {{ provider_name }}
+Date: {{ booking_date }} at {{ booking_time }}
+Current status: {{ booking_status }}
+{% if booking_url %}
+View your dashboard: {{ booking_url }}
+{% endif %}
+
+BookMyService

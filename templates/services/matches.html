@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Find a provider · BookMyService{% endblock %}
+{% block content %}
+<div class="container dashboard-wrap">
+  <header class="dashboard-header"><div><span class="eyebrow">EXPLAINABLE PROVIDER MATCHING</span><h1>Find a provider who fits.</h1><p>Every fit score shows how your search and provider trust signals contributed.</p></div></header>
+  <form class="filter-panel" method="get"><div class="filter-grid">
+    <label class="filter-field"><span>Service or category</span><input name="q" value="{{ filters.q }}" placeholder="Cleaning, repairs..."></label>
+    <label class="filter-field"><span>Location</span><input name="location" value="{{ filters.location }}" placeholder="City or area"></label>
+    <label class="filter-field"><span>Category</span><select name="category"><option value="">Any category</option>{% for category in categories %}<option value="{{ category.slug }}" {% if filters.category == category.slug %}selected{% endif %}>{{ category.name }}</option>{% endfor %}</select></label>
+    <label class="filter-field"><span>Maximum budget (INR)</span><input name="max_price" type="number" min="0" step="0.01" value="{{ filters.max_price }}"></label>
+    <label class="filter-field"><span>Available date</span><input name="date" type="date" value="{{ filters.date }}"></label>
+    <label class="filter-field"><span>Start time</span><input name="start_at" type="time" value="{{ filters.start_at }}"></label>
+  </div><button class="btn btn-primary" type="submit">Find matches</button></form>
+  <div class="service-grid mt-4">
+    {% for service in matches %}
+      <article class="service-card"><div class="service-card-body">
+        <span class="eyebrow">{{ service.category.name }}</span><h2><a href="{% url 'service_detail' service.pk %}">{{ service.name }}</a></h2>
+        <p>{{ service.provider.display_name }} · {{ service.location }}</p>
+        <div class="service-card-meta"><strong>INR {{ service.price }}</strong><span>{% if service.rating %}★ {{ service.rating|floatformat:1 }} · {{ service.review_count }} review{{ service.review_count|pluralize }}{% else %}No reviews yet{% endif %}</span></div>
+        <div class="match-fit" aria-label="Match fit {{ service.fit_score }} percent">
+          <div class="match-fit-heading"><strong>{{ service.fit_score }}% fit</strong><span>How we matched</span></div>
+          <div class="match-fit-track"><span style="width: {{ service.fit_score }}%"></span></div>
+          <ul>{% for reason in service.fit_reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+        </div>
+        <a class="btn btn-outline-primary" href="{% url 'service_detail' service.pk %}">View service</a>
+      </div></article>
+    {% empty %}<div class="dashboard-empty"><strong>No services match these details.</strong><span>Adjust your filters or try again when providers add availability.</span></div>{% endfor %}
+  </div>
+</div>
+{% endblock %}

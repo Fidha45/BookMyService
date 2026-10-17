@@ -1,0 +1,92 @@
+﻿{% extends 'base.html' %}
+{% load static %}
+{% block title %}Provider dashboard · BookMyService{% endblock %}
+{% block body_class %}provider-console{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'provider-dashboard.css' %}">{% endblock %}
+{% block content %}
+<div class="provider-app">
+  <aside class="provider-sidebar" id="provider-sidebar" aria-label="Provider navigation">
+    <a class="provider-brand" href="{% url 'dashboard' %}" aria-label="BookMyService dashboard"><span class="brand-mark">b</span><span>bookmy<span>service</span></span></a>
+    <nav class="provider-nav">
+      <a class="is-active" href="{% url 'dashboard' %}"><span>⌂</span>Dashboard</a>
+      <a href="#booking-requests"><span>▣</span>Booking requests{% if pending_count %}<b class="nav-count">{{ pending_count }}</b>{% endif %}</a>
+      <a href="#my-services"><span>▦</span>My services</a>
+      <a href="{% url 'provider_earnings' %}"><span>▥</span>Earnings</a>
+      <a href="#availability"><span>◷</span>Availability</a>
+      <a href="#reviews"><span>☆</span>Reviews</a>
+      <a href="{% url 'notifications' %}"><span>♧</span>Notifications{% if unread_notification_count %}<b class="nav-count">{{ unread_notification_count }}</b>{% endif %}</a>
+      <a href="{% url 'provider_settings' %}"><span>♙</span>Profile &amp; settings</a>
+      <div class="provider-nav-divider"></div>
+      <a href="{% url 'service_explore' %}"><span>◎</span>Explore services</a>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit"><span>↪</span>Log out</button></form>
+    </nav>
+    <div class="provider-sidebar-note"><span class="provider-status-dot"></span>Provider workspace</div>
+  </aside>
+
+  <div class="provider-main">
+    <header class="provider-topbar">
+      <button class="provider-menu-toggle" type="button" aria-label="Toggle navigation" aria-controls="provider-sidebar" aria-expanded="false">☰</button>
+      <form class="provider-search" method="get" action="{% url 'dashboard' %}"><span aria-hidden="true">⌕</span><input name="q" value="{{ query }}" placeholder="Search your services or bookings…" aria-label="Search your services or bookings"><button type="submit">Search</button></form>
+      <a class="provider-bell" href="{% url 'notifications' %}" aria-label="Notifications{% if unread_notification_count %}, {{ unread_notification_count }} unread{% endif %}">♧{% if unread_notification_count %}<i>{{ unread_notification_count }}</i>{% endif %}</a>
+      <a class="provider-account" href="{% url 'provider_settings' %}"><span class="provider-avatar">{{ user.first_name|first|default:user.email|first|upper }}</span><span><strong>{{ user.first_name|default:user.provider_profile.display_name }}</strong><small>Service provider</small></span><span aria-hidden="true">⌄</span></a>
+    </header>
+
+    <div class="provider-content">
+      <section class="provider-welcome">
+        <div><span class="provider-eyebrow">PROVIDER WORKSPACE</span><h1>Good to see you, {{ user.first_name|default:user.provider_profile.display_name }}!</h1><p>Manage your services, bookings and earnings all in one place.</p></div>
+        <div class="provider-welcome-actions"><a class="provider-button provider-button-light" href="{% url 'provider_settings' %}">▦&nbsp; Manage availability</a><a class="provider-button provider-button-primary" href="{% url 'service_new' %}">＋&nbsp; Add new service</a></div>
+      </section>
+
+      {% if query %}<div class="provider-search-state">Showing matching services and bookings for <strong>“{{ query }}”</strong>. <a href="{% url 'dashboard' %}">Clear search</a></div>{% endif %}
+
+      <section class="provider-stat-grid" aria-label="Booking summary">
+        <a class="provider-stat stat-pending" href="?booking_status=pending#booking-requests"><span class="stat-icon">◷</span><span class="stat-label">Needs your response</span><strong>{{ pending_count }}</strong><span class="stat-arrow">›</span></a>
+        <a class="provider-stat stat-confirmed" href="?booking_status=confirmed#booking-history"><span class="stat-icon">▣</span><span class="stat-label">Confirmed bookings</span><strong>{{ confirmed_count }}</strong><span class="stat-arrow">›</span></a>
+        <a class="provider-stat stat-completed" href="?booking_status=completed#booking-history"><span class="stat-icon">✓</span><span class="stat-label">Completed bookings</span><strong>{{ completed_count }}</strong><span class="stat-arrow">›</span></a>
+        <a class="provider-stat stat-services" href="#my-services"><span class="stat-icon">◇</span><span class="stat-label">Active services</span><strong>{{ active_service_count }}</strong><span class="stat-arrow">›</span></a>
+        <a class="provider-stat stat-progress" href="?booking_status=in_progress#booking-history"><span class="stat-icon">⟳</span><span class="stat-label">In progress</span><strong>{{ in_progress_count }}</strong><span class="stat-arrow">›</span></a>
+        <a class="provider-stat stat-cancelled" href="?booking_status=cancelled#booking-history"><span class="stat-icon">×</span><span class="stat-label">Cancelled</span><strong>{{ cancelled_count }}</strong><span class="stat-arrow">›</span></a>
+      </section>
+
+      {% if query or booking_status != "all" %}<section class="provider-panel provider-filtered-results" id="filtered-bookings"><div class="provider-panel-heading"><div><span class="provider-panel-icon">⌕</span><h2>Matching bookings</h2></div><a href="{% url 'dashboard' %}">Clear filters&nbsp; ×</a></div>
+        {% for b in bookings %}<article class="provider-booking-row"><div class="provider-booking-main"><strong>{{ b.service.name }}</strong><span>{{ b.customer.get_full_name|default:b.customer.email }} · {{ b.start_at|date:"M j, Y · g:i A" }}</span></div><span class="provider-pill pill-{{ b.status }}">{{ b.get_status_display }}</span><span class="provider-filtered-price">₹{{ b.price_at_booking|floatformat:2 }}</span><div class="provider-booking-actions">{% if b.status == 'pending' %}<form method="post" action="{% url 'booking_action' b.pk 'confirm' %}">{% csrf_token %}<button type="submit" class="provider-mini-button">Accept</button></form><form method="post" action="{% url 'booking_action' b.pk 'reject' %}">{% csrf_token %}<button type="submit" class="provider-mini-button is-danger">Reject</button></form><form method="post" action="{% url 'booking_action' b.pk 'cancel' %}">{% csrf_token %}<button type="submit" class="provider-mini-button is-danger">Cancel</button></form>{% elif b.status == 'confirmed' %}<form method="post" action="{% url 'booking_action' b.pk 'start' %}">{% csrf_token %}<button type="submit" class="provider-mini-button">Start service</button></form><form method="post" action="{% url 'booking_action' b.pk 'cancel' %}">{% csrf_token %}<button type="submit" class="provider-mini-button is-danger">Cancel</button></form>{% elif b.status == 'in_progress' %}<form method="post" action="{% url 'booking_action' b.pk 'complete' %}">{% csrf_token %}<button type="submit" class="provider-mini-button">Complete service</button></form>{% endif %}</div></article>{% empty %}<div class="provider-empty compact"><strong>No bookings match those filters</strong><p>Try a different search term or status.</p></div>{% endfor %}
+      </section>{% endif %}
+
+      <div class="provider-feature-grid">
+        <section class="provider-panel provider-earnings-panel" id="earnings">
+          <div class="provider-panel-heading"><div><span class="provider-panel-icon">▥</span><h2>Your estimated earnings</h2></div><a href="{% url 'provider_earnings' %}">This month&nbsp;⌄</a></div>
+          <div class="provider-earnings-body"><div class="provider-earning-numbers"><div><span>Estimated total</span><strong>₹{{ estimated_earnings|floatformat:2 }}</strong></div><div><span>This month</span><strong>₹{{ estimated_month_earnings|floatformat:2 }}</strong></div><a href="{% url 'provider_earnings' %}">View earnings dashboard&nbsp; →</a><small>Estimated from completed bookings</small></div>
+            <div class="provider-chart" aria-label="Estimated earnings over the last six months">{% for month in earnings_months %}<div class="provider-chart-column"><strong>₹{{ month.amount|floatformat:0 }}</strong><span class="provider-chart-bar" style="height:{% if month.percent %}{{ month.percent }}{% else %}3{% endif %}%"></span><small>{{ month.label }}</small></div>{% endfor %}</div>
+          </div>
+        </section>
+        <aside class="provider-panel provider-growth-panel"><div><span class="provider-growth-art" aria-hidden="true">↗</span><span class="provider-eyebrow">GROW YOUR BUSINESS</span><h2>Reach more local customers</h2><p>Add services and keep your availability up to date so customers can find a time that works.</p></div><a class="provider-button provider-button-primary" href="{% url 'service_new' %}">Add a service&nbsp; →</a></aside>
+      </div>
+
+      <div class="provider-two-column">
+        <section class="provider-panel" id="my-services"><div class="provider-panel-heading"><div><span class="provider-panel-icon">◇</span><h2>Your services</h2></div><a href="{% url 'service_new' %}">Add service&nbsp;＋</a></div>
+          {% for s in services %}<article class="provider-service-row"><div class="provider-service-image">{% if s.image %}<img src="{{ s.image.url }}" alt="{{ s.name }}">{% else %}<span aria-hidden="true">⌂</span>{% endif %}</div><div class="provider-service-info"><div class="provider-service-name"><h3>{{ s.name }}</h3><span class="provider-pill {% if s.is_active %}pill-active{% else %}pill-inactive{% endif %}">{{ s.is_active|yesno:"Active,Inactive" }}</span></div><p>{{ s.category.name }} · {{ s.location }}</p><strong>₹{{ s.price|floatformat:2 }}</strong></div><a class="provider-edit-button" href="{% url 'service_edit' s.pk %}">Edit</a></article>{% empty %}<div class="provider-empty"><span class="provider-empty-icon">◇</span><strong>No services listed yet</strong><p>Add a service to start receiving customer requests.</p><a class="provider-button provider-button-light" href="{% url 'service_new' %}">Create your first service</a></div>{% endfor %}
+        </section>
+        <section class="provider-panel" id="availability"><div class="provider-panel-heading"><div><span class="provider-panel-icon">◷</span><h2>Your availability</h2></div><a href="{% url 'provider_settings' %}">Edit hours&nbsp; →</a></div><div class="provider-week-grid">{% for day in weekdays %}<div class="provider-week-day"><strong>{{ day.name|slice:":3" }}</strong>{% if day.row %}<span>{{ day.row.start_time|time:"g:i A" }}</span><span>to {{ day.row.end_time|time:"g:i A" }}</span>{% else %}<span class="provider-day-off">Day off</span>{% endif %}</div>{% endfor %}</div><p class="provider-panel-note">{% if availability_by_day %}Customers can request bookings during your listed working hours.{% else %}Set your working hours to start receiving bookings.{% endif %}</p></section>
+      </div>
+
+      <div class="provider-two-column provider-booking-columns">
+        <section class="provider-panel" id="booking-requests"><div class="provider-panel-heading"><div><span class="provider-panel-icon">▣</span><h2>Recent booking requests</h2></div><a href="?booking_status=pending#booking-requests">View all&nbsp; →</a></div>
+          {% for b in recent_requests %}<article class="provider-booking-row"><div class="provider-booking-main"><strong>{{ b.service.name }}</strong><span>{{ b.customer.get_full_name|default:b.customer.email }} · {{ b.start_at|date:"M j, Y · g:i A" }}</span></div><span class="provider-pill pill-pending">{{ b.get_status_display }}</span><div class="provider-booking-actions"><form method="post" action="{% url 'booking_action' b.pk 'confirm' %}">{% csrf_token %}<button type="submit" class="provider-mini-button">Accept</button></form><form method="post" action="{% url 'booking_action' b.pk 'reject' %}">{% csrf_token %}<button type="submit" class="provider-mini-button is-danger">Reject</button></form><form method="post" action="{% url 'booking_action' b.pk 'cancel' %}">{% csrf_token %}<button type="submit" class="provider-mini-button is-danger">Cancel</button></form></div></article>{% empty %}<div class="provider-empty compact"><span class="provider-empty-icon">▣</span><strong>No booking requests yet</strong><p>New customer requests will show up here.</p><a href="{% url 'service_explore' %}">Preview the service directory&nbsp; →</a></div>{% endfor %}
+        </section>
+        <section class="provider-panel" id="booking-history"><div class="provider-panel-heading"><div><span class="provider-panel-icon">▤</span><h2>Booking history &amp; receipts</h2></div><a href="#booking-history">View all&nbsp; →</a></div>
+          {% for b in booking_history %}<article class="provider-history-row"><div><strong>{{ b.service.name }}</strong><span>{{ b.customer.get_full_name|default:b.customer.email }} · {{ b.start_at|date:"M j, Y · g:i A" }}</span><small>Ref {{ b.reference|truncatechars:16 }} · ₹{{ b.price_at_booking|floatformat:2 }}</small></div><span class="provider-pill pill-{{ b.status }}">{{ b.get_status_display }}</span>{% if b.status == 'confirmed' %}<form method="post" action="{% url 'booking_action' b.pk 'start' %}">{% csrf_token %}<button type="submit" class="provider-mini-button">Start service</button></form><form method="post" action="{% url 'booking_action' b.pk 'cancel' %}">{% csrf_token %}<button type="submit" class="provider-mini-button is-danger">Cancel</button></form>{% elif b.status == 'in_progress' %}<form method="post" action="{% url 'booking_action' b.pk 'complete' %}">{% csrf_token %}<button type="submit" class="provider-mini-button">Complete service</button></form>{% endif %}<a class="provider-receipt-link" href="{% url 'booking_invoice' b.pk %}" aria-label="Download receipt for {{ b.service.name }}">Receipt ↓</a></article>{% empty %}<div class="provider-empty compact"><span class="provider-empty-icon">▤</span><strong>No booking history yet</strong><p>Confirmed and past bookings will appear here.</p></div>{% endfor %}
+        </section>
+      </div>
+
+      <section class="provider-panel" id="reviews"><div class="provider-panel-heading"><div><span class="provider-panel-icon">☆</span><h2>Recent customer reviews</h2></div><a href="{% url 'service_explore' %}">Explore services&nbsp; →</a></div>
+        {% for review in reviews %}<article class="provider-review-row"><span class="provider-avatar small">{{ review.customer.first_name|first|default:review.customer.email|first|upper }}</span><div><strong>{{ review.booking.service.name }} <span class="provider-review-stars">{% for _ in "12345" %}{% if forloop.counter <= review.rating %}★{% else %}☆{% endif %}{% endfor %}</span></strong><p>{{ review.text|default:"The customer left a rating without a written comment." }}</p><small>{{ review.customer.get_full_name|default:review.customer.email }} · {{ review.created_at|date:"M j, Y" }}</small></div></article>{% empty %}<div class="provider-empty compact"><span class="provider-empty-icon">☆</span><strong>No reviews yet</strong><p>Customer feedback will appear here after a completed booking.</p></div>{% endfor %}
+      </section>
+      <footer class="provider-footer">BookMyService provider workspace <span>·</span> Earnings are estimates based on completed bookings.</footer>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script>
+(() => { const root = document.querySelector('.provider-app'); if (!root) return; const toggle = root.querySelector('.provider-menu-toggle'); const sidebar = root.querySelector('.provider-sidebar'); toggle.addEventListener('click', () => { const open = sidebar.classList.toggle('is-open'); toggle.setAttribute('aria-expanded', String(open)); }); sidebar.querySelectorAll('a[href^="#"]').forEach(link => link.addEventListener('click', () => { sidebar.classList.remove('is-open'); toggle.setAttribute('aria-expanded', 'false'); })); })();
+</script>{% endblock %}
+

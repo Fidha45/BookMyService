@@ -1,0 +1,29 @@
+{% extends "admin/base.html" %}
+{% load static i18n %}
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}BookMyService Admin{% endblock %}
+{% block branding %}<h1 id="site-name"><a href="{% url 'admin:index' %}" aria-label="BookMyService Admin home"><span class="admin-brand-mark" aria-hidden="true">b</span><span class="admin-wordmark">bookmy<span>service</span></span></a></h1>{% endblock %}
+{% block usertools %}
+  {% if has_permission %}
+    {% firstof user.get_short_name user.get_username as admin_display_name %}
+    <div id="user-tools" class="bms-user-tools">
+      <details class="bms-account-menu">
+        <summary aria-label="Account menu for {{ admin_display_name }}">
+          <span class="bms-account-avatar" aria-hidden="true">{{ admin_display_name|slice:":1"|upper }}</span>
+          <span class="bms-account-identity"><strong>{{ admin_display_name }}</strong><small>{% translate "Administrator" %}</small></span>
+          <span class="bms-account-caret" aria-hidden="true">▾</span>
+        </summary>
+        <div class="bms-account-panel">
+          <p class="bms-account-panel-title">{{ admin_display_name }}</p>
+          {% if site_url %}<a href="{{ site_url }}">{% translate "View site" %}</a>{% endif %}
+          {% if user.is_active and user.is_staff and user.has_usable_password %}<a href="{% url 'admin:password_change' %}">{% translate "Change password" %}</a>{% endif %}
+          <form id="bms-admin-logout" method="post" action="{% url 'admin:logout' %}">
+            {% csrf_token %}
+            <button type="submit">{% translate "Log out" %}</button>
+          </form>
+          <div class="bms-theme-control">{% include "admin/color_theme_toggle.html" %}<span>{% translate "Appearance" %}</span></div>
+        </div>
+      </details>
+    </div>
+  {% endif %}
+{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin.css' %}">{% endblock %}

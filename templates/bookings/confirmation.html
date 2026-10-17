@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% load service_images %}
+{% block title %}Payment confirmed · {{ booking.service.name }}{% endblock %}
+{% block content %}
+<div class="confirmation-page">
+  <section class="confirmation-card">
+    <div class="confirmation-success-mark" aria-hidden="true">✓</div>
+    <span class="payment-eyebrow">PAYMENT SUCCESSFUL</span>
+    <h1>Payment confirmed!</h1>
+    <p class="confirmation-lede">Your payment was verified. Your booking details are below.</p>
+    <div class="confirmation-reference"><div><small>Booking ID</small><strong>{{ booking.reference|slice:":8"|upper }}</strong></div><div><small>Booking status</small><strong class="confirmation-status">{{ booking.get_status_display }}</strong></div></div>
+    <div class="confirmation-details-grid">
+      <section><h2>Booking details</h2>
+        <div class="confirmation-service">
+          {% if booking.service.image %}<img src="{{ booking.service.image.url }}" alt="{{ booking.service.name }}">{% elif booking.service|catalog_service_image %}<img src="{{ booking.service|catalog_service_image }}" alt="{{ booking.service.name }}" loading="lazy" decoding="async">{% else %}<span class="payment-service-placeholder">{{ booking.service.category.name|first|upper }}</span>{% endif %}
+          <div><strong>{{ booking.service.name }}</strong><small>{{ booking.service.provider.display_name }}</small></div>
+        </div>
+        <dl class="confirmation-facts"><div><dt>Date</dt><dd>{{ booking.start_at|date:'D, j M Y' }}</dd></div><div><dt>Time</dt><dd>{{ booking.start_at|date:'g:i A' }} – {{ booking.end_at|date:'g:i A' }}</dd></div><div><dt>Location</dt><dd>{{ booking.service.location }}</dd></div><div><dt>Duration</dt><dd>{{ booking.duration_at_booking }} minutes</dd></div></dl>
+      </section>
+      <section class="confirmation-payment"><h2>Payment details</h2><div class="confirmation-amount-row"><span>Amount paid</span><strong>₹{{ payment.amount }}</strong></div><div class="confirmation-amount-row"><span>Payment status</span><strong class="confirmation-status">{{ payment.get_status_display }}</strong></div><div class="confirmation-amount-row"><span>Verified</span><strong>{{ payment.verified_at|date:'j M Y, g:i A' }}</strong></div>
+        <a class="confirmation-primary-button" href="{% url 'dashboard' %}?view=bookings">View my bookings</a>
+        <a class="confirmation-secondary-button" href="{% url 'booking_invoice' booking.pk %}">↓&nbsp; Download invoice</a>
+      </section>
+    </div>
+    <p class="confirmation-note">{% if booking.status == 'pending' %}The provider still needs to confirm your requested appointment. We’ll notify you when they respond.{% else %}You can review your booking details from My Bookings.{% endif %}</p>
+  </section>
+</div>
+{% endblock %}

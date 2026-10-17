@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><body style="margin:0;background:#f7f5fb;font-family:Arial,sans-serif;color:#252238">
+  <div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #e9e4f2;border-radius:16px;overflow:hidden">
+    <div style="padding:24px 30px;background:#f2effa;color:#6446b5;font-weight:700">BookMyService</div>
+    <div style="padding:30px"><h1 style="font-size:24px;margin:0 0 12px">{{ event_title }}</h1>
+      <p>Hi {{ recipient_name }},</p><p>{{ intro }}</p>
+      <table style="width:100%;border-collapse:collapse;margin:24px 0">
+        <tr><td style="padding:9px;border-bottom:1px solid #eee">Service</td><td style="padding:9px;border-bottom:1px solid #eee">{{ service_name }}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #eee">Reference</td><td style="padding:9px;border-bottom:1px solid #eee">{{ booking_reference }}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #eee">Customer</td><td style="padding:9px;border-bottom:1px solid #eee">{{ customer_name }}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #eee">Provider</td><td style="padding:9px;border-bottom:1px solid #eee">{{ provider_name }}</td></tr>
+        <tr><td style="padding:9px;border-bottom:1px solid #eee">Scheduled</td><td style="padding:9px;border-bottom:1px solid #eee">{{ booking_date }} at {{ booking_time }}</td></tr>
+        <tr><td style="padding:9px">Status</td><td style="padding:9px">{{ booking_status }}</td></tr>
+      </table>
+      {% if booking_url %}<p><a href="{{ booking_url }}" style="display:inline-block;background:#6446b5;color:#fff;text-decoration:none;padding:12px 18px;border-radius:8px">Open dashboard</a></p>{% endif %}
+      <p style="color:#777;font-size:13px;margin-top:28px">BookMyService · Good help, close to home.</p>
+    </div>
+  </div>
+</body></html>

@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Choose a time · {{ service.name }} · BookMyService{% endblock %}
+{% block content %}
+<div class="container booking-page">
+  <nav class="detail-breadcrumb" aria-label="Breadcrumb"><a href="{% url 'service_list' %}">Services</a><span>/</span><a href="{% url 'service_detail' service.pk %}">{{ service.name }}</a><span>/</span><span>Choose a time</span></nav>
+  <header class="booking-page-heading"><span class="eyebrow">ONE GOOD THING AT A TIME</span><h1>Choose a time that works.</h1><p>Pick a date to see when {{ service.provider.display_name }} is available.</p></header>
+  <div class="booking-layout">
+    <section class="booking-picker-card"><div class="booking-step-heading"><span class="step-chip">1</span><div><h2>Choose your date</h2><p>Times are shown in the provider’s local schedule.</p></div></div>
+      <form method="get" class="booking-date-form"><label for="date">Appointment date</label><div class="date-submit-row"><input class="form-control" id="date" name="date" type="date" value="{{ selected_day|date:'Y-m-d' }}" required><button class="btn btn-outline-primary" type="submit">Show available times</button></div></form>
+      <div class="booking-step-heading booking-step-two"><span class="step-chip">2</span><div><h2>Select a start time</h2><p>Your choice is rechecked when you send the request.</p></div></div>
+      <form method="post">{% csrf_token %}<input type="hidden" name="request_key" value="{{ request_key }}"><input type="hidden" name="date" value="{{ selected_day|date:'Y-m-d' }}"><fieldset class="slot-fieldset"><legend class="visually-hidden">Available start times</legend><div class="slot-grid">{% for slot in slots %}<label class="slot-option"><input type="radio" name="start_at" value="{{ slot|date:'Y-m-d\\TH:i' }}" {% if selected_start == slot|date:'Y-m-d\\TH:i' %}checked{% endif %} required><span>{{ slot|date:'g:i A' }}</span></label>{% empty %}<div class="booking-no-slots"><span class="no-slots-icon">◷</span><strong>No times available on this date</strong><span>Try another day or check back after the provider updates their hours.</span></div>{% endfor %}</div></fieldset>{% if slots %}<button class="btn btn-primary booking-confirm-btn" type="submit">Request this booking <span aria-hidden="true">→</span></button>{% endif %}</form>
+    </section>
+    <aside class="booking-summary"><span class="eyebrow">SERVICE SUMMARY</span><h2>{{ service.name }}</h2><p class="summary-provider">with {{ service.provider.display_name }}</p><div class="summary-divider"></div><div class="summary-row"><span>Category</span><strong>{{ service.category.name }}</strong></div><div class="summary-row"><span>Location</span><strong>{{ service.location }}</strong></div><div class="summary-row"><span>Duration</span><strong>{{ service.duration_minutes }} minutes</strong></div><div class="summary-price"><span>Service price</span><strong>₹{{ service.price }}</strong></div><p class="summary-note">This sends a booking request to the provider. The appointment is not confirmed until they respond.</p><a class="summary-back" href="{% url 'service_detail' service.pk %}">← Back to service details</a></aside>
+  </div>
+</div>
+{% endblock %}

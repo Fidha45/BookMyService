@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ service.name }} · {{ service.provider.display_name }} · BookMyService{% endblock %}
+{% block content %}
+<div class="container premium-detail-page">
+  <nav class="premium-breadcrumb" aria-label="Breadcrumb">
+    <a href="{% url 'service_list' %}">Home</a><span aria-hidden="true">›</span>
+    <a href="{% url 'service_explore' %}">Explore services</a><span aria-hidden="true">›</span>
+    <a href="{% url 'service_explore' %}?category={{ service.category.slug|urlencode }}">{{ service.category.name }}</a><span aria-hidden="true">›</span>
+    <span aria-current="page">{{ service.name }}</span>
+  </nav>
+
+  <div class="premium-detail-grid">
+      <div class="premium-service-top">
+      <section class="premium-gallery" aria-label="{{ service.name }} images">
+        <div class="premium-gallery-main">
+          {% if gallery_images %}<img id="service-gallery-image" src="{{ gallery_images.0.url }}" alt="{{ gallery_images.0.alt }}" fetchpriority="high">
+          {% else %}<div class="premium-gallery-placeholder"><span>{{ service.category.name|first|upper }}</span><p>Service image unavailable</p></div>{% endif %}
+          <span class="premium-gallery-category">{{ service.category.name }}</span>
+        </div>
+        {% if gallery_images %}<div class="premium-gallery-thumbs" aria-label="Choose service image">{% for image in gallery_images %}<button class="premium-gallery-thumb {% if forloop.first %}is-active{% endif %}" type="button" data-gallery-src="{{ image.url }}" data-gallery-alt="{{ image.alt }}" aria-label="Show image {{ forloop.counter }}" aria-pressed="{% if forloop.first %}true{% else %}false{% endif %}"><img src="{{ image.url }}" alt=""></button>{% endfor %}</div>{% endif %}
+      </section>
+
+      <section class="premium-service-heading">
+        <div class="premium-service-title"><div class="premium-title-actions"><span class="premium-eyebrow">LOCAL PROFESSIONAL SERVICE</span><div class="premium-heading-actions">{% if user.is_authenticated and user.role == 'customer' %}<form method="post" action="{% url 'favourite_toggle' 'service' service.pk %}" class="premium-save-form">{% csrf_token %}<input type="hidden" name="next" value="/services/{{ service.pk }}/"><button type="submit" class="premium-outline-button">{% if is_favourite %}♥ Saved{% else %}♡ Save{% endif %}</button></form>{% else %}<a class="premium-outline-button" href="{% url 'login' %}?next={{ request.path|urlencode }}">♡ Save</a>{% endif %}<button type="button" class="premium-outline-button premium-share-button" data-share-url="{{ request.build_absolute_uri }}">↗ Share</button></div></div>
+          <h1>{{ service.name }}</h1><div class="premium-service-facts"><span class="premium-rating">{% if average_rating %}<b aria-hidden="true">★</b> {{ average_rating|floatformat:1 }} <span>({{ reviews|length }} review{{ reviews|length|pluralize }})</span>{% else %}<span class="premium-new-service">New service</span>{% endif %}</span><span>{{ service.duration_minutes }} minutes</span><span>{{ service.location }}</span></div>
+          <div class="premium-price">₹{{ service.price }}</div><p class="premium-service-description">{{ service.description|default:'Service details have not been added yet.'|linebreaksbr }}</p>
+        </div>
+        <div class="premium-quick-facts" aria-label="Service details"><div><span class="premium-fact-icon">◷</span><span><small>Duration</small><strong>{{ service.duration_minutes }} min</strong></span></div><div><span class="premium-fact-icon">⌖</span><span><small>Location</small><strong>{{ service.location }}</strong></span></div><div><span class="premium-fact-icon">₹</span><span><small>Service price</small><strong>₹{{ service.price }}</strong></span></div><div><span class="premium-fact-icon">{% if service.provider.is_verified %}✓{% else %}•{% endif %}</span><span><small>Provider</small><strong>{% if service.provider.is_verified %}Verified{% else %}Local professional{% endif %}</strong></span></div></div>
+      </section>
+
+      <aside class="premium-detail-aside"><section class="premium-booking-card" id="booking"><span class="premium-eyebrow">BOOK THIS SERVICE</span><h2>{{ service.name }}</h2><p class="premium-booking-lede">Select an available date and start time.</p><div class="premium-booking-price">₹{{ service.price }}<small> / service</small></div>
+        <div class="premium-calendar-head"><a href="?month={{ previous_month|date:'Y-m' }}#booking" aria-label="Previous month">‹</a><strong>{{ calendar_month|date:'F Y' }}</strong><a href="?month={{ next_month|date:'Y-m' }}#booking" aria-label="Next month">›</a></div>
+        <div class="premium-calendar-grid premium-calendar-weekdays" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+        <div class="premium-calendar-grid premium-calendar-days">{% for week in calendar_weeks %}{% for day in week %}{% if day.in_month and day.available %}<a class="premium-calendar-day is-available {% if day.date == selected_day %}is-selected{% endif %}" href="?date={{ day.date|date:'Y-m-d' }}#booking" aria-label="Available {{ day.date|date:'l, F j' }}" {% if day.date == selected_day %}aria-current="date"{% endif %}>{{ day.date.day }}</a>{% elif day.in_month %}<span class="premium-calendar-day {% if day.date == selected_day %}is-selected{% endif %}" aria-label="Unavailable {{ day.date|date:'l, F j' }}">{{ day.date.day }}</span>{% else %}<span class="premium-calendar-day is-outside" aria-hidden="true">{{ day.date.day }}</span>{% endif %}{% endfor %}{% endfor %}</div>
+        <div class="premium-times-heading"><strong>Available time slots</strong><small>{{ selected_day|date:'l, j F Y' }}</small></div>
+        <div class="premium-time-slots">{% for slot in selected_slots %}<a class="premium-time-slot {% if selected_start == slot|date:'Y-m-d\\TH:i' %}is-selected{% endif %}" href="?date={{ selected_day|date:'Y-m-d' }}&amp;start_at={{ slot|date:'Y-m-d\\TH:i'|urlencode }}#booking">{{ slot|date:'g:i A' }}</a>{% empty %}<p class="premium-no-times">No available times on this date. Choose another highlighted date.</p>{% endfor %}</div>
+        {% if selected_slots %}<a class="premium-continue-button {% if not selected_start %}is-disabled{% endif %}" {% if selected_start %}href="{% url 'book_service' service.pk %}?date={{ selected_day|date:'Y-m-d' }}&amp;start_at={{ selected_start|urlencode }}"{% else %}aria-disabled="true" href="#booking"{% endif %}>Continue to Book <span aria-hidden="true">→</span></a>{% else %}<span class="premium-continue-button is-disabled" aria-disabled="true">Continue to Book <span aria-hidden="true">→</span></span>{% endif %}
+        <p class="premium-booking-note">Your selected time is checked again when you submit your booking request.</p>
+        {% if user.is_authenticated and user.role == 'customer' %}<form method="post" action="{% url 'favourite_toggle' 'provider' service.provider.pk %}" class="premium-provider-save">{% csrf_token %}<input type="hidden" name="next" value="/services/{{ service.pk }}/"><button type="submit">{% if provider_is_favourite %}♥ Provider saved{% else %}♡ Save provider{% endif %}</button></form>{% endif %}
+      </section><div class="premium-booking-assurance"><span aria-hidden="true">✓</span><p><strong>Schedule checked</strong><br>Availability is based on the provider’s published hours and current bookings.</p></div></aside>
+      </div>
+
+    <div class="premium-content-grid">
+      <main class="premium-detail-main">
+      <nav class="premium-section-tabs" aria-label="Service information"><a href="#overview">Overview</a><a href="#provider">Provider</a><a href="#reviews">Reviews{% if reviews %} ({{ reviews|length }}){% endif %}</a><a href="#faqs">FAQs</a></nav>
+
+      <section class="premium-content-section" id="overview"><span class="premium-eyebrow">SERVICE OVERVIEW</span><h2>Service description</h2><p>{{ service.description|default:'The provider has not added a description for this service yet.'|linebreaksbr }}</p><div class="premium-included"><h3>Service details</h3><div class="premium-included-grid"><span><b>✓</b>{{ service.category.name }}</span><span><b>✓</b>{{ service.duration_minutes }} minute appointment</span><span><b>✓</b>Service in {{ service.location }}</span></div></div></section>
+
+      <section class="premium-content-section" id="provider"><div class="premium-section-title"><div><span class="premium-eyebrow">YOUR LOCAL PROFESSIONAL</span><h2>Provider profile</h2></div>{% if service.provider.is_verified %}<span class="premium-verified">✓ Verified provider</span>{% endif %}</div>
+        <article class="premium-provider-card">{% if service.provider.image %}<img class="premium-provider-photo" src="{{ service.provider.image.url }}" alt="{{ service.provider.display_name }}">{% else %}<div class="premium-provider-avatar">{{ service.provider.display_name|first|upper }}</div>{% endif %}<div class="premium-provider-copy"><h3>{{ service.provider.display_name }}</h3><p class="premium-provider-location">{{ service.provider.location }}{% if service.provider.experience_years %} · {{ service.provider.experience_years }} years of experience{% endif %}</p>{% if service.provider.description %}<p class="premium-provider-bio">{{ service.provider.description|linebreaksbr }}</p>{% endif %}<div class="premium-provider-stats">{% if service.provider.experience_years %}<span><strong>{{ service.provider.experience_years }}+</strong><small>Years experience</small></span>{% endif %}<span><strong>{{ provider_service_count }}</strong><small>Listed services</small></span>{% if provider_average_rating %}<span><strong>★ {{ provider_average_rating|floatformat:1 }}</strong><small>Provider rating</small></span>{% endif %}<span><strong>{{ provider_review_count }}</strong><small>Customer reviews</small></span></div></div></article>
+        {% if provider_services %}<div class="premium-provider-offerings"><h3>Services offered by {{ service.provider.display_name }}</h3><div class="premium-provider-offering-list">{% for item in provider_services %}<a href="{% url 'service_detail' item.pk %}" class="premium-provider-offering{% if item.pk == service.pk %} is-current{% endif %}"><span><strong>{{ item.name }}</strong><small>{{ item.category.name }} · {{ item.duration_minutes }} minutes</small></span><b>₹{{ item.price|floatformat:2 }}</b></a>{% endfor %}</div></div>{% endif %}
+        {% if availability %}<div class="premium-hours"><h3>Working hours</h3>{% for row in availability %}<div><span>{{ row.get_weekday_display }}</span><strong>{{ row.start_time|time:'g:i A' }} – {{ row.end_time|time:'g:i A' }}</strong></div>{% endfor %}</div>{% else %}<p class="premium-data-empty">Working hours have not been published yet.</p>{% endif %}
+      </section>
+
+      <section class="premium-content-section premium-faq-section" id="faqs"><span class="premium-eyebrow">BOOKING INFORMATION</span><h2>Frequently asked questions</h2><details><summary>How do I request this service?</summary><p>Choose a date and available start time, then continue to the booking form. Your request is checked against the provider’s schedule when submitted.</p></details><details><summary>When is my appointment confirmed?</summary><p>This is a booking request. The provider must respond before the appointment is confirmed.</p></details><details><summary>What price will be saved with my booking?</summary><p>The service price shown above is saved with the booking request.</p></details></section>
+    </main>
+
+    <aside class="premium-review-aside">
+      <section class="premium-sidebar-panel" id="reviews"><div class="premium-sidebar-title"><h2>Customer reviews</h2></div>{% if average_rating %}<div class="premium-review-score"><strong>{{ average_rating|floatformat:1 }}</strong><span><b aria-hidden="true">★★★★★</b><small>{{ reviews|length }} review{{ reviews|length|pluralize }}</small></span></div><div class="premium-rating-bars">{% for row in rating_distribution %}<div><span>{{ row.rating }} ★</span><span class="premium-rating-track"><i style="width:{{ row.percent }}%"></i></span><small>{{ row.percent }}%</small></div>{% endfor %}</div>{% else %}<p class="premium-data-empty">No customer reviews yet.</p>{% endif %}
+        <div class="premium-review-list">{% for review in reviews|slice:":2" %}<article class="premium-review"><div class="premium-review-byline"><span class="premium-review-avatar">{{ review.customer.first_name|first|default:'C'|upper }}</span><span><strong>{{ review.customer.first_name|default:'Customer' }}</strong><small>{{ review.created_at|date:'M j, Y' }}</small></span><span class="premium-review-stars" aria-label="Rated {{ review.rating }} out of 5">{% for star in '12345' %}{% if forloop.counter <= review.rating %}★{% else %}<span>★</span>{% endif %}{% endfor %}</span></div>{% if review.text %}<p>{{ review.text|linebreaksbr }}</p>{% endif %}</article>{% empty %}<p class="premium-data-empty">No customer reviews yet.</p>{% endfor %}</div>
+      </section>
+      {% if related_services %}<section class="premium-sidebar-panel premium-sidebar-similar"><div class="premium-sidebar-title"><h2>Similar services</h2><a href="{% url 'service_explore' %}?category={{ service.category.slug|urlencode }}">View all →</a></div><div class="premium-sidebar-similar-grid">{% for item in related_services %}<a class="premium-sidebar-service" href="{% url 'service_detail' item.pk %}"><div class="premium-sidebar-service-image">{% if item.card_image_url %}<img src="{{ item.card_image_url }}" alt="{{ item.name }}" loading="lazy">{% else %}<span>{{ item.category.name|first|upper }}</span>{% endif %}</div><strong>{{ item.name }}</strong><b>₹{{ item.price }}</b><small>{{ item.duration_minutes }} min</small></a>{% endfor %}</div></section>{% endif %}
+    </aside>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script>
+document.querySelectorAll('.premium-gallery-thumb').forEach(function (button) {
+  button.addEventListener('click', function () {
+    var image = document.getElementById('service-gallery-image');
+    if (!image) return;
+    image.src = button.dataset.gallerySrc;
+    image.alt = button.dataset.galleryAlt;
+    document.querySelectorAll('.premium-gallery-thumb').forEach(function (thumb) {
+      thumb.classList.toggle('is-active', thumb === button);
+      thumb.setAttribute('aria-pressed', thumb === button ? 'true' : 'false');
+    });
+  });
+});
+document.querySelectorAll('.premium-share-button').forEach(function (button) {
+  button.addEventListener('click', async function () {
+    var shareData = {title: document.title, url: button.dataset.shareUrl};
+    try {
+      if (navigator.share) await navigator.share(shareData);
+      else if (navigator.clipboard) { await navigator.clipboard.writeText(shareData.url); button.textContent = '✓ Link copied'; }
+    } catch (error) { if (error.name !== 'AbortError') button.textContent = 'Share unavailable'; }
+  });
+});
+</script>{% endblock %}

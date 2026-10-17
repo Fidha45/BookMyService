@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Estimated earnings · BookMyService{% endblock %}
+{% block content %}
+<div class="container dashboard-wrap">
+  <header class="dashboard-header"><div><span class="eyebrow">PROVIDER FINANCES</span><h1>Estimated earnings</h1><p>Booking value from completed services, based on the price saved when each booking was made.</p></div><div class="dashboard-header-actions"><a class="btn btn-outline-primary" href="{% url 'dashboard' %}">Back to dashboard</a></div></header>
+  <div class="stat-grid"><div class="stat-card"><span>Estimated total</span><strong>₹{{ total_earnings|floatformat:2 }}</strong></div><div class="stat-card"><span>This month</span><strong>₹{{ month_earnings|floatformat:2 }}</strong></div><div class="stat-card"><span>Completed bookings</span><strong>{{ completed_count }}</strong></div><div class="stat-card"><span>Pending bookings</span><strong>{{ pending_count }}</strong></div></div>
+  <section class="dashboard-section"><div class="dashboard-section-title"><div><span class="eyebrow">LAST SIX MONTHS</span><h2>Completed booking value</h2></div></div>
+    <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:16px;align-items:end;min-height:220px;padding:20px 8px;border:1px solid #eee9f4;border-radius:16px">
+      {% for month in earnings_months %}<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:10px;height:180px"><strong>₹{{ month.amount|floatformat:0 }}</strong><div role="img" aria-label="{{ month.label }}: ₹{{ month.amount|floatformat:2 }}" style="width:100%;max-width:54px;height:{{ month.percent }}px;min-height:8px;background:#7352bd;border-radius:8px 8px 2px 2px"></div><span class="text-muted">{{ month.label }}</span></div>{% endfor %}
+    </div>
+  </section>
+  <section class="dashboard-section"><div class="dashboard-section-title"><div><span class="eyebrow">COMPLETED WORK</span><h2>Earnings history</h2></div></div>
+    {% if history %}<div class="dashboard-table-wrap"><div class="table-responsive"><table class="table dashboard-table"><thead><tr><th>Service</th><th>Customer</th><th>Completed</th><th>Booking reference</th><th>Estimated value</th></tr></thead><tbody>{% for booking in history %}<tr><td>{{ booking.service.name }}</td><td>{{ booking.customer.get_full_name|default:booking.customer.email }}</td><td>{{ booking.completed_at|date:'M j, Y · g:i A' }}</td><td>{{ booking.reference }}</td><td>₹{{ booking.price_at_booking|floatformat:2 }}</td></tr>{% endfor %}</tbody></table></div></div>{% else %}<div class="dashboard-empty"><strong>No completed bookings yet.</strong><span>Completed services will appear here.</span></div>{% endif %}
+    <p class="text-muted mt-3">These are estimates based on booking prices. They do not include payout timing, platform fees, refunds, or tax adjustments.</p>
+  </section>
+</div>
+{% endblock %}

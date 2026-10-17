@@ -1,0 +1,54 @@
+﻿{% extends 'base.html' %}
+{% load static service_images %}
+{% block title %}Payment &amp; booking Â· {{ payment.booking.service.name }}{% endblock %}
+{% block content %}
+<div class="payment-flow-page">
+  <nav class="payment-steps" aria-label="Booking progress">
+    <div class="payment-step is-complete"><span>âœ“</span><small>Service details</small></div><i></i>
+    <div class="payment-step is-complete"><span>âœ“</span><small>Date &amp; time</small></div><i></i>
+    <div class="payment-step is-current"><span>3</span><small>Payment</small></div><i></i>
+    <div class="payment-step"><span>4</span><small>Confirmation</small></div>
+  </nav>
+  <h1 class="payment-page-title">Payment &amp; Booking</h1>
+  <div class="payment-layout">
+    <section class="payment-panel payment-selected-service">
+      <h2>Selected service</h2>
+      <article class="payment-service-card">
+        {% if payment.booking.service.image %}<img src="{{ payment.booking.service.image.url }}" alt="{{ payment.booking.service.name }}">{% elif payment.booking.service|catalog_service_image %}<img src="{{ payment.booking.service|catalog_service_image }}" alt="{{ payment.booking.service.name }}" loading="lazy" decoding="async">{% else %}<div class="payment-service-placeholder">{{ payment.booking.service.category.name|first|upper }}</div>{% endif %}
+        <div><strong>{{ payment.booking.service.name }}</strong><span>{{ payment.booking.service.provider.display_name }}</span><small>{{ payment.booking.service.location }}</small></div>
+      </article>
+      <div class="payment-facts">
+        <div><span class="payment-fact-icon">â–¦</span><span><b>Date</b><small>{{ payment.booking.start_at|date:'D, j M Y' }}</small></span></div>
+        <div><span class="payment-fact-icon">â—·</span><span><b>Time</b><small>{{ payment.booking.start_at|date:'g:i A' }} â€“ {{ payment.booking.end_at|date:'g:i A' }}</small></span></div>
+        <div><span class="payment-fact-icon">âŒ–</span><span><b>Location</b><small>{{ payment.booking.service.location }}</small></span></div>
+        <div><span class="payment-fact-icon">â—·</span><span><b>Duration</b><small>{{ payment.booking.duration_at_booking }} minutes</small></span></div>
+      </div>
+      <div class="payment-total-row"><span>Service price</span><strong>â‚¹{{ payment.amount }}</strong></div>
+      <div class="payment-total-row payment-grand-total"><span>Total amount</span><strong>â‚¹{{ payment.amount }}</strong></div>
+    </section>
+
+    <section class="payment-panel payment-method-panel">
+      <h2>Choose payment method</h2>
+      {% if gateway_ready and key_id and payment.gateway_order_id %}
+        <label class="payment-method-option"><input class="payment-radio" type="radio" name="payment_method" value="upi" checked><span class="payment-method-copy"><strong>UPI</strong><small>Google Pay, PhonePe, Paytm and other UPI apps</small><b class="payment-method-brands">GPay&nbsp;&nbsp; PhonePe&nbsp;&nbsp; paytm</b></span></label>
+        <label class="payment-method-option"><input class="payment-radio" type="radio" name="payment_method" value="card"><span class="payment-method-copy"><strong>Debit / Credit card</strong><small>Visa, Mastercard and supported cards</small></span><b class="payment-card-brands">VISA</b></label>
+        <label class="payment-method-option"><input class="payment-radio" type="radio" name="payment_method" value="netbanking"><span class="payment-method-copy"><strong>Net banking</strong><small>Choose your bank in secure checkout</small></span></label>
+        <label class="payment-method-option"><input class="payment-radio" type="radio" name="payment_method" value="wallet"><span class="payment-method-copy"><strong>Wallet</strong><small>Available wallets appear at checkout</small></span></label>
+        <button id="pay-button" class="payment-submit-button" type="button">Pay â‚¹{{ payment.amount }}</button>
+        <p class="payment-security-note">Your payment is securely processed by Razorpay.</p>
+      {% else %}
+        <div class="payment-unavailable" role="status"><strong>Online payment is unavailable</strong><span>The administrator needs to configure Razorpay before you can pay with Google Pay, UPI, cards or other methods.</span><small>No payment has been collected.</small><a href="{% url 'dashboard' %}">Return to your dashboard</a></div>
+      {% endif %}    </section>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}<script src="https://checkout.razorpay.com/v1/checkout.js"></script><script>
+document.getElementById('pay-button')?.addEventListener('click', function () {
+  const selectedMethod = document.querySelector('input[name="payment_method"]:checked')?.value || 'upi';
+  const options = {key: '{{ key_id|escapejs }}', amount: {{ amount_paise }}, currency: '{{ payment.currency }}', name: 'BookMyService', description: '{{ payment.booking.service.name|escapejs }}', order_id: '{{ payment.gateway_order_id|escapejs }}', method: {upi: selectedMethod === 'upi', card: selectedMethod === 'card', netbanking: selectedMethod === 'netbanking', wallet: selectedMethod === 'wallet'}, handler: function (response) {
+    const form = document.createElement('form'); form.method = 'post'; form.action = '{% url "verify_payment" payment.pk %}';
+    const values = {csrfmiddlewaretoken: '{{ csrf_token }}', razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature};
+    Object.entries(values).forEach(([name, value]) => {const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.appendChild(input)}); document.body.appendChild(form); form.submit();
+  }}; const checkout = new Razorpay(options); checkout.on('payment.failed', function () {const form = document.createElement('form'); form.method = 'post'; form.action = '{% url "payment_failed" payment.pk %}'; const input = document.createElement('input'); input.type = 'hidden'; input.name = 'csrfmiddlewaretoken'; input.value = '{{ csrf_token }}'; form.appendChild(input); document.body.appendChild(form); form.submit(); }); checkout.open();
+});
+</script>{% endblock %}

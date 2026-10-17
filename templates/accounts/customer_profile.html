@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% block title %}My profile · BookMyService{% endblock %}
+{% block content %}
+<div class="customer-portal container">
+  <aside class="customer-sidebar">
+    <nav aria-label="Customer navigation"><a href="{% url 'dashboard' %}"><span>⌂</span>Dashboard</a><a href="{% url 'service_explore' %}"><span>⌕</span>Browse services</a><a href="{% url 'dashboard' %}?view=bookings"><span>▦</span>My bookings</a><a href="{% url 'favourites' %}"><span>♡</span>Favourites</a><a href="{% url 'dashboard' %}?view=reviews"><span>☆</span>Reviews</a><a class="is-active" href="{% url 'profile' %}"><span>♙</span>My profile</a><a href="{% url 'profile' %}"><span>⚙</span>Settings</a><form method="post" action="{% url 'logout' %}" class="customer-sidebar-logout">{% csrf_token %}<button type="submit"><span>⇥</span>Log out</button></form></nav>
+  </aside>
+  <main class="customer-main customer-profile-main">
+    <header class="customer-page-heading"><div><span class="customer-eyebrow">YOUR ACCOUNT</span><h1>My profile</h1><p>Manage your personal information.</p></div></header>
+    <div class="customer-profile-layout">
+      <section class="customer-profile-card customer-profile-summary"><span class="customer-profile-avatar">{{ user.first_name|first|default:user.email|first|upper }}</span><h2>{{ user.get_full_name|default:user.email }}</h2><p>{{ user.email }}</p><small>{{ user.get_role_display }}</small></section>
+      <section class="customer-profile-card"><div class="customer-section-heading"><div><span class="customer-eyebrow">ACCOUNT DETAILS</span><h2>Personal information</h2></div></div>
+        <form method="post" class="customer-profile-form">{% csrf_token %}{% if form.non_field_errors %}<div class="form-error-summary" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+          <div class="customer-profile-field"><label for="id_first_name">First name</label>{{ form.first_name }}{% if form.first_name.errors %}<div class="field-errors">{{ form.first_name.errors }}</div>{% endif %}</div>
+          <div class="customer-profile-field"><label for="id_last_name">Last name</label>{{ form.last_name }}{% if form.last_name.errors %}<div class="field-errors">{{ form.last_name.errors }}</div>{% endif %}</div>
+          <div class="customer-profile-field customer-profile-field-wide"><label>Email address</label><input type="email" value="{{ user.email }}" readonly aria-describedby="email-readonly-help"><small id="email-readonly-help">Your sign-in email is managed by your account.</small></div>
+          <div class="customer-profile-field customer-profile-field-wide"><label for="id_phone">Phone number</label>{{ form.phone }}{% if form.phone.errors %}<div class="field-errors">{{ form.phone.errors }}</div>{% endif %}</div>
+          <div class="customer-profile-form-footer"><button class="customer-primary-button" type="submit">Save changes →</button></div>
+        </form>
+      </section>
+    </div>
+  </main>
+</div>
+{% endblock %}
