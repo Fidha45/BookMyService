@@ -8,7 +8,8 @@ from .models import Booking
 TRANSITIONS = {
     Booking.Status.PENDING: {Booking.Status.CONFIRMED, Booking.Status.REJECTED, Booking.Status.CANCELLED},
     Booking.Status.CONFIRMED: {Booking.Status.IN_PROGRESS, Booking.Status.CANCELLED},
-    Booking.Status.IN_PROGRESS: {Booking.Status.COMPLETED},
+    Booking.Status.IN_PROGRESS: {Booking.Status.AWAITING_CUSTOMER_CONFIRMATION},
+    Booking.Status.AWAITING_CUSTOMER_CONFIRMATION: {Booking.Status.COMPLETED},
 }
 
 def _lock_provider_schedule(provider_id):
@@ -34,7 +35,7 @@ def _lock_provider_schedule(provider_id):
     except ProviderProfile.DoesNotExist as exc:
         raise ValidationError("This provider is no longer available.") from exc
 
-def available_slots(service, day, step_minutes=30):
+def available_slots(service, day, step_minutes=30, exclude_booking_id=None):
     """Return currently open start times for a local calendar date."""
     profile = service.provider
     if not service.is_active or not profile.user.is_active: return []
@@ -44,8 +45,11 @@ def available_slots(service, day, step_minutes=30):
     opening = timezone.make_aware(datetime.combine(day, hours.start_time), tz)
     closing = timezone.make_aware(datetime.combine(day, hours.end_time), tz)
     duration = timedelta(minutes=service.duration_minutes)
-    occupied = list(Booking.objects.filter(service__provider=profile, status__in=Booking.OCCUPYING,
-                                      start_at__lt=closing, end_at__gt=opening).values_list("start_at", "end_at"))
+    occupied_bookings = Booking.objects.filter(service__provider=profile, status__in=Booking.OCCUPYING,
+                                               start_at__lt=closing, end_at__gt=opening)
+    if exclude_booking_id is not None:
+        occupied_bookings = occupied_bookings.exclude(pk=exclude_booking_id)
+    occupied = list(occupied_bookings.values_list("start_at", "end_at"))
     from accounts.models import AvailabilityBlock
     blocks = list(AvailabilityBlock.objects.filter(provider=profile, start_at__lt=closing, end_at__gt=opening).values_list("start_at", "end_at"))
     slots, start = [], opening
@@ -133,10 +137,25 @@ def transition(booking, status, actor):
     with transaction.atomic():
         _lock_provider_schedule(booking.provider_lock_id)
         booking = Booking.objects.select_for_update().get(pk=booking.pk)
+        if status == Booking.Status.COMPLETED and actor != booking.customer:
+            raise ValidationError("Only the customer who booked this service can confirm completion.")
+        if status == Booking.Status.COMPLETED:
+            from .models import ProblemReport
+            if ProblemReport.objects.filter(booking=booking, status=ProblemReport.Status.OPEN).exists():
+                raise ValidationError("Your reported problem must be resolved by an administrator before you can confirm completion.")
+        # Sending a service for customer confirmation is an action reserved for
+        # the provider assigned to the booking, including when the actor is staff.
+        if status == Booking.Status.AWAITING_CUSTOMER_CONFIRMATION and (
+            actor.role != User.Role.PROVIDER or actor != booking.service.provider.user
+        ):
+            raise ValidationError("Only the assigned provider can mark this service as completed.")
         admin = actor.is_staff
         if actor == booking.customer:
-            if status != Booking.Status.CANCELLED or booking.start_at - timezone.now() < timedelta(hours=2):
-                raise ValidationError("You may cancel up to two hours before the appointment.")
+            if status == Booking.Status.CANCELLED:
+                if booking.start_at - timezone.now() < timedelta(hours=2):
+                    raise ValidationError("You may cancel up to two hours before the appointment.")
+            elif status != Booking.Status.COMPLETED:
+                raise ValidationError("Customers can only confirm completion or cancel their booking.")
         elif actor.role == User.Role.PROVIDER and actor == booking.service.provider.user:
             if status not in TRANSITIONS.get(booking.status, set()): raise ValidationError("That status change is not allowed.")
         elif not admin:
@@ -153,12 +172,40 @@ def transition(booking, status, actor):
         from .notifications import notify_booking
         email_event = {
             Booking.Status.CONFIRMED: "accepted", Booking.Status.REJECTED: "rejected",
-            Booking.Status.IN_PROGRESS: "in_progress", Booking.Status.COMPLETED: "completed",
+            Booking.Status.IN_PROGRESS: "in_progress",
+            Booking.Status.AWAITING_CUSTOMER_CONFIRMATION: "awaiting_customer_confirmation",
+            Booking.Status.COMPLETED: "completed",
             Booking.Status.CANCELLED: "cancelled",
         }[status]
         notify_booking(booking, f"status-{status}", f"Booking {booking.reference} is now {booking.get_status_display().lower()}.", booking.customer, email_event)
+        if status == Booking.Status.COMPLETED:
+            notify_booking(booking, "completion-confirmed-provider", f"The customer confirmed completion for booking {booking.reference}.", booking.service.provider.user)
         if status == Booking.Status.CANCELLED and actor == booking.customer:
             notify_booking(booking, "status-cancelled-provider", f"Booking {booking.reference} was cancelled by the customer.", booking.service.provider.user, "cancelled_by_customer")
         if status == Booking.Status.COMPLETED:
             notify_booking(booking, "review-eligible", "Your completed service is ready for a review.", booking.customer)
     return booking
+
+
+def report_booking_problem(booking_id, customer, description):
+    """Create one open issue for an awaiting-confirmation booking, under its schedule lock."""
+    from .models import ProblemReport
+    try:
+        with transaction.atomic():
+            booking_stub = Booking.objects.select_related("service").get(pk=booking_id)
+            _lock_provider_schedule(booking_stub.provider_lock_id)
+            booking = Booking.objects.select_for_update().select_related("service").get(pk=booking_id)
+            if booking.customer_id != customer.pk:
+                raise ValidationError("Only the customer who booked this service can report a problem.")
+            if booking.status != Booking.Status.AWAITING_CUSTOMER_CONFIRMATION:
+                raise ValidationError("Problems can only be reported while a service is awaiting your confirmation.")
+            if not description or not description.strip():
+                raise ValidationError("Describe the problem before submitting the report.")
+            if len(description.strip()) > 2000:
+                raise ValidationError("The problem description must be 2,000 characters or fewer.")
+            if ProblemReport.objects.filter(booking=booking, status=ProblemReport.Status.OPEN).exists():
+                raise ValidationError("A problem report is already open for this booking.")
+            report = ProblemReport.objects.create(booking=booking, customer=customer, description=description.strip())
+            return report
+    except OperationalError as exc:
+        raise ValidationError("The booking is being updated. Please try submitting again.") from exc

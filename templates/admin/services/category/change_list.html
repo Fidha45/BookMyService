@@ -3,10 +3,6 @@
 
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin-service-management.css' %}"><link rel="stylesheet" href="{% static 'admin-categories.css' %}">{% endblock %}
 
-{# Keep the global admin navigation on every other page, but give this
-   management page the full viewport width. The Home breadcrumb remains. #}
-{% block nav-sidebar %}{% endblock %}
-
 {% block breadcrumbs %}
   <div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a><span aria-hidden="true"> › </span><span aria-current="page">Categories</span></div>
 {% endblock %}

@@ -1,0 +1,16 @@
+{% extends "admin/change_list.html" %}
+{% load static admin_list %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin-accounts.css' %}?v=1">{% endblock %}
+{% block content_title %}<div class="bms-account-page-heading"><div><span>SERVICE PROVIDER MANAGEMENT</span><h1>All Service Providers</h1><p>View and manage all registered service providers on the platform.</p></div>{% if has_add_permission %}<a class="bms-account-add" href="{% url 'admin:accounts_providerprofile_add' %}">＋ Add Service Provider</a>{% endif %}</div>{% endblock %}
+{% block object-tools %}{% endblock %}
+{% block search %}<form class="bms-account-filters" method="get" action=""><label class="visually-hidden" for="provider-status">Provider status</label><select id="provider-status" name="approval_status__exact"><option value="">All status</option><option value="approved" {% if request.GET.approval_status__exact == 'approved' %}selected{% endif %}>Verified</option><option value="pending" {% if request.GET.approval_status__exact == 'pending' %}selected{% endif %}>Pending</option><option value="rejected" {% if request.GET.approval_status__exact == 'rejected' %}selected{% endif %}>Rejected</option></select><label class="visually-hidden" for="provider-sort">Sort providers</label><select id="provider-sort" name="o"><option value="-4" {% if request.GET.o == '-4' or not request.GET.o %}selected{% endif %}>Newest first</option><option value="4" {% if request.GET.o == '4' %}selected{% endif %}>Oldest first</option><option value="0" {% if request.GET.o == '0' %}selected{% endif %}>Name A–Z</option></select><label class="visually-hidden" for="provider-search">Search providers</label><input id="provider-search" type="search" name="q" value="{{ cl.query }}" placeholder="Search by name, email, service or location..."><button type="submit">Filter</button></form>{% endblock %}
+{% block filters %}{% endblock %}
+{% block content %}
+  <section class="bms-account-metrics" aria-label="Provider statistics">
+    <article><span class="bms-account-metric-icon is-purple" aria-hidden="true">♟</span><div><span>Total providers</span><strong>{{ provider_metrics.total }}</strong><small>Registered providers</small></div></article>
+    <article><span class="bms-account-metric-icon is-green" aria-hidden="true">✓</span><div><span>Verified providers</span><strong>{{ provider_metrics.verified }}</strong><small>Active and verified</small></div></article>
+    <article><span class="bms-account-metric-icon is-amber" aria-hidden="true">◷</span><div><span>Pending approvals</span><strong>{{ provider_metrics.pending }}</strong><small>Awaiting review</small></div></article>
+    <article><span class="bms-account-metric-icon is-rose" aria-hidden="true">×</span><div><span>Inactive providers</span><strong>{{ provider_metrics.inactive }}</strong><small>Inactive accounts</small></div></article>
+  </section>
+  {{ block.super }}
+{% endblock %}

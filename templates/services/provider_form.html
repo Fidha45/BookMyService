@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ title }} · BookMyService{% endblock %}
+{% block body_class %}provider-console provider-service-form-page{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'provider-dashboard.css' %}?v=provider-header-compact-20261022-2">{% endblock %}
+{% block content %}
+{% include 'dashboard/provider_chrome_open.html' with active_provider_nav=active_provider_nav %}
+<div class="provider-service-form-content">
+  <header class="provider-page-heading">
+    <div><h1>{{ title }}</h1><p>Keep your service information clear for local customers.</p></div>
+    <a class="provider-button provider-button-light" href="{% url 'dashboard' %}?provider_page=services">Back to My Services</a>
+  </header>
+  <section class="provider-panel provider-service-form-panel">
+    <form method="post" enctype="multipart/form-data" class="provider-service-form">
+      {% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-error-summary" role="alert">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}
+        <div class="form-field provider-service-field provider-service-field-{{ field.name }} {% if field.field.widget.input_type == 'checkbox' %}form-check-field{% endif %}">
+          <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="required-mark">*</span>{% endif %}</label>
+          {{ field }}
+          {% if field.help_text %}<div class="form-text">{{ field.help_text|safe }}</div>{% endif %}
+          {% if field.errors %}<div class="field-errors" role="alert">{% for error in field.errors %}<span>{{ error }}</span>{% endfor %}</div>{% endif %}
+        </div>
+      {% endfor %}
+      <div class="provider-service-form-actions"><button class="provider-button provider-button-primary" type="submit">Save service</button><a class="provider-button provider-button-light" href="{% url 'dashboard' %}?provider_page=services">Cancel</a></div>
+    </form>
+  </section>
+</div>
+{% include 'dashboard/provider_chrome_close.html' %}
+{% endblock %}

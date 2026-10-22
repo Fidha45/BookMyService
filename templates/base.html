@@ -5,17 +5,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <title>{% block title %}BookMyService · Local services, beautifully booked{% endblock %}</title>
+  <title>{% block title %}BookMyService &middot; Local services, beautifully booked{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="{% static 'app.css' %}" rel="stylesheet">
+  <link href="{% static 'app.css' %}?v=service-booking-guidance-20261022" rel="stylesheet">
   {% block extra_head %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}">
+<body class="{% if user.is_authenticated and user.role == 'customer' %}customer-app customer-sidebar-collapsed {% endif %}{% block body_class %}{% endblock %}">
 <nav class="site-nav navbar{% if user.is_authenticated and user.role == 'customer' %} navbar-expand customer-nav{% else %} navbar-expand-lg{% endif %}">
   <div class="container">
+    {% if user.is_authenticated and user.role == 'customer' %}<button id="customer-sidebar-toggle" class="customer-sidebar-toggle" type="button" aria-controls="customer-sidebar" aria-expanded="false" aria-label="Open navigation sidebar"><span aria-hidden="true">&#9776;</span></button>{% endif %}
     <a class="brand navbar-brand" href="{% url 'service_list' %}" aria-label="BookMyService home"><span class="brand-mark">b</span><span>bookmy<span class="brand-light">service</span></span></a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#main-nav" aria-controls="main-nav" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
     <div class="collapse navbar-collapse" id="main-nav">
@@ -23,17 +24,15 @@
         <a class="nav-link" href="{% url 'service_list' %}">Home</a>
         <a class="nav-link" href="{% url 'service_list' %}#categories">Categories</a>
         <a class="nav-link" href="{% url 'service_explore' %}">Explore services</a>
-        <a class="nav-link" href="{% url 'service_list' %}#how-it-works">How it works</a>
       </div>{% endif %}
       <div class="nav-actions d-flex align-items-center">
         {% if user.is_authenticated %}
-          {% if user.role == 'customer' and customer_location %}<a class="customer-location-chip" href="{% url 'service_explore' %}?location={{ customer_location|urlencode }}"><span aria-hidden="true">⌖</span>{{ customer_location }}<b aria-hidden="true">⌄</b></a>{% endif %}
-          {% if user.role == 'customer' %}<a class="customer-topbar-notifications" href="{% url 'notifications' %}" aria-label="Notifications{% if unread_notification_count %}, {{ unread_notification_count }} unread{% endif %}"><span aria-hidden="true">♧</span>{% if unread_notification_count %}<i>{{ unread_notification_count }}</i>{% endif %}</a>{% endif %}
+          {% if user.role == 'customer' and customer_location %}<a class="customer-location-chip" href="{% url 'service_explore' %}?location={{ customer_location|urlencode }}"><span aria-hidden="true">&#x2316;</span>{{ customer_location }}</a>{% endif %}
+          {% if user.role == 'customer' %}<a class="customer-topbar-notifications" href="{% url 'notifications' %}" aria-label="Notifications{% if unread_notification_count %}, {{ unread_notification_count }} unread{% endif %}"><span aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span>{% if unread_notification_count %}<i>{{ unread_notification_count }}</i>{% endif %}</a>{% endif %}
           <div class="dropdown account-menu">
             <button class="account-trigger" type="button" data-bs-toggle="dropdown" aria-expanded="false">
               <span class="account-avatar" aria-hidden="true">{{ user.first_name|first|default:user.email|first|upper }}</span>
               <span class="account-name">{{ user.first_name|default:user.email }}</span>
-              <span class="account-chevron" aria-hidden="true">⌄</span>
               {% if unread_notification_count %}<span class="notification-dot" aria-label="{{ unread_notification_count }} unread notifications"></span>{% endif %}
             </button>
             <div class="dropdown-menu dropdown-menu-end account-dropdown">
@@ -41,7 +40,7 @@
               <a class="dropdown-item" href="{% url 'dashboard' %}">My dashboard</a>
               <a class="dropdown-item" href="{% url 'notifications' %}">Notifications{% if unread_notification_count %}<span class="notification-count">{{ unread_notification_count }}</span>{% endif %}</a>
               {% if user.role == 'customer' %}<a class="dropdown-item" href="{% url 'favourites' %}">Favourites</a><a class="dropdown-item" href="{% url 'match_services' %}">Find a match</a>{% endif %}
-              {% if user.role == 'provider' %}<a class="dropdown-item" href="{% url 'provider_settings' %}">Provider settings</a><a class="dropdown-item" href="{% url 'provider_earnings' %}">Earnings</a>{% endif %}
+              {% if user.role == 'provider' %}<a class="dropdown-item" href="{% url 'provider_settings' %}">Provider settings</a>{% endif %}
               {% if user.is_staff %}<a class="dropdown-item" href="{% url 'admin:index' %}">Django Admin</a>{% endif %}
               <a class="dropdown-item" href="{% url 'profile' %}">Profile</a>
               <div class="dropdown-divider"></div>
@@ -50,7 +49,7 @@
           </div>
         {% else %}
           <a class="btn btn-nav-quiet" href="{% url 'login' %}">Log in</a>
-          <a class="btn btn-primary btn-nav-join" href="{% url 'register' %}">Get started <span aria-hidden="true">↗</span></a>
+          <a class="btn btn-primary btn-nav-join" href="{% url 'register' %}">Get started <span aria-hidden="true">&#8599;</span></a>
         {% endif %}
       </div>
     </div>
@@ -58,8 +57,10 @@
 </nav>
 
 <main id="main-content">
-  {% if messages %}<div class="container flash-stack" aria-live="polite">{% for message in messages %}<div class="flash-message flash-{{ message.tags|default:'info' }}"><span>{{ message }}</span><button type="button" class="flash-close" aria-label="Dismiss message" onclick="this.parentElement.remove()">×</button></div>{% endfor %}</div>{% endif %}
+  {% if user.is_authenticated and user.role == 'customer' %}<div id="customer-app-layout" class="customer-portal container">{% include 'dashboard/customer_sidebar.html' with active_nav=active_nav %}<div class="customer-main" id="customer-page-content">{% endif %}
+  {% if messages %}<div class="container flash-stack" aria-live="polite">{% for message in messages %}<div class="flash-message flash-{{ message.tags|default:'info' }}"><span>{{ message }}</span><button type="button" class="flash-close" aria-label="Dismiss message" onclick="this.parentElement.remove()">&#215;</button></div>{% endfor %}</div>{% endif %}
   {% block content %}{% endblock %}
+  {% if user.is_authenticated and user.role == 'customer' %}</div></div>{% endif %}
 </main>
 
 <footer class="site-footer">
@@ -67,11 +68,13 @@
     <div class="footer-brand-block"><a class="brand footer-brand" href="{% url 'service_list' %}"><span class="brand-mark">b</span><span>bookmy<span class="brand-light">service</span></span></a><p>Good help, close to home.<br>Find the right local professional and book on your terms.</p></div>
     <div class="footer-links"><span class="footer-heading">Explore</span><a href="{% url 'service_list' %}#categories">Service categories</a><a href="{% url 'service_explore' %}">All services</a><a href="{% url 'service_list' %}#how-it-works">How it works</a></div>
     <div class="footer-links"><span class="footer-heading">Your account</span>{% if user.is_authenticated %}<a href="{% url 'dashboard' %}">Dashboard</a><a href="{% url 'profile' %}">Profile settings</a>{% else %}<a href="{% url 'login' %}">Sign in</a><a href="{% url 'register' %}">Create an account</a>{% endif %}</div>
-    <div class="footer-note"><span class="footer-heading">Book with confidence</span><p>Every request is checked against the provider’s schedule before it reaches them.</p></div>
+    <div class="footer-note"><span class="footer-heading">Book with confidence</span><p>Every request is checked against the provider&#8217;s schedule before it reaches them.</p></div>
   </div>
-  <div class="container footer-bottom"><span>© {% now "Y" %} BookMyService</span><span>Built for the little things that make life easier.</span></div>
+  <div class="container footer-bottom"><span>&#169; {% now "Y" %} BookMyService</span><span>Built for the little things that make life easier.</span></div>
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{% static 'catalog-live-search.js' %}" defer></script>
+{% if user.is_authenticated and user.role == 'customer' %}<script src="{% static 'customer-sidebar.js' %}?v=2" defer></script>{% endif %}
 {% block extra_js %}{% endblock %}
 </body>
 </html>

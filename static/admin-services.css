@@ -74,3 +74,8 @@ body.app-services.model-service.change-list .visually-hidden { position:absolute
   body.app-services.model-service.change-list #changelist { overflow:visible; }
   body.app-services.model-service.change-list #changelist-filter { width:auto; }
 }
+
+@media (max-width:600px) {
+  body.app-services.model-service.change-list #content,
+  body.app-services.model-service.change-list #content-start { box-sizing:border-box; width:100%; max-width:100%; }
+}

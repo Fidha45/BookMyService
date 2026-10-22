@@ -5,7 +5,7 @@ from django.urls import reverse
 class BookMyServiceAdminSite(AdminSite):
     """Keep Django Admin intact while presenting services as one management area."""
 
-    enable_nav_sidebar = False
+    enable_nav_sidebar = True
 
     def get_app_list(self, request, app_label=None):
         app_list = super().get_app_list(request, app_label)

@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 {% load static i18n %}
 {% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}BookMyService Admin{% endblock %}
-{% block branding %}<h1 id="site-name"><a href="{% url 'admin:index' %}" aria-label="BookMyService Admin home"><span class="admin-brand-mark" aria-hidden="true">b</span><span class="admin-wordmark">bookmy<span>service</span></span></a></h1>{% endblock %}
+{% block branding %}<button id="bms-admin-nav-toggle" type="button" aria-controls="bms-admin-sidebar" aria-expanded="true" aria-label="Toggle administrator menu">☰</button><h1 id="site-name"><a href="{% url 'dashboard' %}" aria-label="BookMyService Admin home"><span class="admin-brand-mark" aria-hidden="true">b</span><span class="admin-wordmark">bookmy<span>service</span></span></a></h1><form class="bms-admin-search" role="search" method="get" action="{% url 'dashboard' %}"><label class="visually-hidden" for="bms-admin-global-search">Search users, services and bookings</label><span aria-hidden="true">⌕</span><input id="bms-admin-global-search" type="search" name="q" placeholder="Search users, services, bookings…"></form><span class="bms-admin-location">⌖ &nbsp;Kochi</span><a class="bms-admin-notifications" href="{% url 'notifications' %}" aria-label="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>{% if unread_notification_count %}<i>{{ unread_notification_count }}</i>{% endif %}</a>{% endblock %}
 {% block usertools %}
   {% if has_permission %}
     {% firstof user.get_short_name user.get_username as admin_display_name %}
@@ -26,4 +26,11 @@
     </div>
   {% endif %}
 {% endblock %}
-{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin.css' %}">{% endblock %}
+{% block nav-breadcrumbs %}{% endblock %}
+{% block nav-sidebar %}
+  {% include "dashboard/admin_sidebar.html" with django_admin_shell=True %}
+{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin.css' %}?v=14"><link rel="stylesheet" href="{% static 'admin-sidebar.css' %}?v=1">{% endblock %}
+{% block extrabody %}{{ block.super }}<script>
+(() => { const button = document.getElementById('bms-admin-nav-toggle'); const backdrop = document.getElementById('bms-admin-backdrop'); const sidebar = document.getElementById('bms-admin-sidebar'); if (sidebar) { sidebar.querySelectorAll('a').forEach(link => { const target = new URL(link.href, location.href); const current = new URL(location.href); const sameQuery = ['role__exact', 'status__exact'].every(key => target.searchParams.get(key) === current.searchParams.get(key)); if (target.pathname === current.pathname && sameQuery) link.classList.add('is-current'); }); } if (!button || !backdrop) return; const mobile = () => matchMedia('(max-width: 900px)').matches; const setOpen = open => { document.body.classList.toggle('bms-admin-nav-open', open); document.body.classList.toggle('bms-admin-nav-collapsed', !open && !mobile()); button.setAttribute('aria-expanded', String(open)); }; button.addEventListener('click', () => setOpen(!document.body.classList.contains('bms-admin-nav-open') && (mobile() || document.body.classList.contains('bms-admin-nav-collapsed')))); backdrop.addEventListener('click', () => setOpen(false)); document.addEventListener('keydown', e => { if (e.key === 'Escape') setOpen(false); }); window.addEventListener('resize', () => { if (!mobile()) setOpen(true); else setOpen(false); }); if (mobile()) setOpen(false); })();
+</script>{% endblock %}

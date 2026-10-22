@@ -1,0 +1,42 @@
+{% load static service_images %}
+<section class="customer-bookings-hero" aria-labelledby="customer-bookings-title">
+  <div><span class="customer-eyebrow">MY BOOKINGS</span><h1 id="customer-bookings-title">Manage your bookings</h1><p>View, reschedule or cancel your appointments.</p></div>
+  <div class="customer-bookings-hero-art"><img src="{% static 'images/services/House cleaning.jpg' %}" alt="A home professional ready for an appointment" loading="lazy"><aside><span aria-hidden="true">&#128197;</span><div><strong>Need a new service?</strong><p>Explore and book trusted professionals for your next task.</p><a href="{% url 'service_explore' %}">Browse services <span aria-hidden="true">&#8594;</span></a></div></aside></div>
+</section>
+<div class="customer-bookings-layout">
+  <section class="customer-bookings-panel" aria-label="Your bookings">
+    <nav class="customer-booking-tabs" aria-label="Filter bookings">
+      <a class="{% if selected_status == 'all' %}is-active{% endif %}" href="{% url 'dashboard' %}?view=bookings">All bookings <b>{{ bookings|length }}</b></a>
+      <a class="{% if selected_status == 'upcoming' %}is-active{% endif %}" href="{% url 'dashboard' %}?view=bookings&status=upcoming">Upcoming <b>{{ upcoming_count }}</b></a>
+      <a class="{% if selected_status == 'completed' %}is-active{% endif %}" href="{% url 'dashboard' %}?view=bookings&status=completed">Completed <b>{{ completed_count }}</b></a>
+      <a class="{% if selected_status == 'cancelled' %}is-active{% endif %}" href="{% url 'dashboard' %}?view=bookings&status=cancelled">Cancelled <b>{{ cancelled_count }}</b></a>
+    </nav>
+    <div class="customer-bookings-list">
+      {% for b in visible_bookings %}
+      <article class="customer-booking-row">
+        <a class="customer-booking-row-image" href="{% url 'booking_invoice' b.pk %}">{% if b.service.image %}<img src="{{ b.service.image.url }}" alt="{{ b.service.name }}" loading="lazy" decoding="async">{% elif b.service|catalog_service_image %}<img src="{{ b.service|catalog_service_image }}" alt="{{ b.service.name }}" loading="lazy" decoding="async">{% elif b.service.category.artwork_url %}<img src="{{ b.service.category.artwork_url }}" alt="{{ b.service.category.name }}" loading="lazy" decoding="async">{% else %}<span>{{ b.service.category.name|first|upper }}</span>{% endif %}</a>
+        <div class="customer-booking-row-info"><a href="{% url 'booking_invoice' b.pk %}"><strong>{{ b.service.name }}</strong></a><span>{{ b.service.category.name }}</span><small><i aria-hidden="true">{{ b.service.provider.display_name|first|upper }}</i>{{ b.service.provider.display_name }}</small><div class="customer-booking-row-meta"><span><b aria-hidden="true">&#128197;</b>{{ b.start_at|date:'D, M j, Y' }}</span><span><b aria-hidden="true">&#9719;</b>{{ b.start_at|date:'g:i A' }} – {{ b.end_at|date:'g:i A' }}</span><span><b aria-hidden="true">&#9906;</b>{{ b.service.location }}</span></div>{% if b.status == 'awaiting_customer_confirmation' and not b.open_problem_report %}<details class="customer-report-problem"><summary>Report a Problem</summary><form method="post" action="{% url 'booking_action' b.pk 'report_problem' %}">{% csrf_token %}<label for="problem-reason-{{ b.pk }}">Select a reason</label><select id="problem-reason-{{ b.pk }}" name="reason"><option value="Service not completed properly">Service not completed properly</option><option value="Provider did not show up">Provider did not show up</option><option value="Poor quality of work">Poor quality of work</option><option value="Additional payment demanded">Additional payment demanded</option><option value="Rude or unprofessional behavior">Rude or unprofessional behavior</option><option value="Other">Other</option></select><label for="problem-description-{{ b.pk }}">Describe the problem</label><textarea id="problem-description-{{ b.pk }}" name="description" rows="3" maxlength="2000" placeholder="Please describe the issue in detail..." required></textarea><button class="customer-danger-button" type="submit">Submit report</button></form></details>{% endif %}</div>
+        <div class="customer-booking-row-actions"><span class="status-pill status-{{ b.status }}">{{ b.get_status_display }}</span><strong class="customer-booking-row-price">&#8377;{{ b.price_at_booking }}</strong>
+          {% if b.status == 'awaiting_customer_confirmation' %}
+            <p class="customer-completion-message">The service provider has marked this service as completed. Please confirm whether the work has been completed.</p>
+          {% endif %}
+          <div class="customer-booking-row-buttons">
+          {% if b.status == 'awaiting_customer_confirmation' %}
+            {% if b.open_problem_report %}<span class="status-pill status-problem">Issue Reported</span><span class="customer-booking-issue-note">Awaiting admin review</span>{% else %}<form method="post" action="{% url 'booking_action' b.pk 'confirm_completion' %}" onsubmit="return confirm('Confirm that the work has been completed?')">{% csrf_token %}<button class="customer-primary-button" type="submit">&#10003;&nbsp; Confirm Work Completed</button></form>{% endif %}
+          {% endif %}
+          {% if b.customer_can_reschedule %}<a class="customer-outline-button" href="{% url 'booking_reschedule' b.pk %}">Reschedule</a>{% endif %}
+          {% if b.customer_can_cancel %}<form method="post" action="{% url 'booking_action' b.pk 'cancel' %}">{% csrf_token %}<button class="customer-danger-button" type="submit">Cancel</button></form>{% endif %}
+          {% if b.status == 'completed' or b.status == 'cancelled' or b.status == 'rejected' %}<a class="customer-primary-button" href="{% url 'service_detail' b.service.pk %}">Book again</a>{% endif %}
+          <a class="customer-outline-button" href="{% url 'booking_detail' b.pk %}">View details</a>
+          {% if b.status == 'completed' and not b.review %}<a class="customer-outline-button" href="{% url 'review_booking' b.pk %}">Write review</a>{% endif %}
+        </div></div>
+      </article>
+      {% empty %}<div class="customer-bookings-empty"><span aria-hidden="true">&#9638;</span><h2>{% if selected_status == 'upcoming' %}No upcoming bookings{% elif selected_status == 'completed' %}No completed bookings{% elif selected_status == 'cancelled' %}No cancelled bookings{% else %}No bookings yet{% endif %}</h2><p>Your service appointments will appear here.</p><a class="customer-primary-button" href="{% url 'service_explore' %}">Browse services <span aria-hidden="true">&#8594;</span></a></div>{% endfor %}
+    </div>
+  </section>
+  <aside class="customer-bookings-aside">
+    <section class="customer-booking-summary"><h2><span aria-hidden="true">&#9632;</span>Booking summary</h2><dl><div><dt>Total bookings</dt><dd>{{ bookings|length }}</dd></div><div><dt>Upcoming</dt><dd>{{ upcoming_count }}</dd></div><div><dt>Completed</dt><dd>{{ completed_count }}</dd></div><div><dt>Cancelled</dt><dd>{{ cancelled_count }}</dd></div></dl></section>
+    <section class="customer-bookings-help"><span aria-hidden="true">&#9432;</span><div><h2>Need help?</h2><p>Open a booking to view its details and available options.</p></div></section>
+    <section class="customer-bookings-explore"><span aria-hidden="true">&#9673;</span><h2>Explore more services</h2><p>Discover trusted professionals for your home, office and personal needs.</p><a class="customer-outline-button" href="{% url 'service_explore' %}">Browse services <span aria-hidden="true">&#8594;</span></a></section>
+  </aside>
+</div>

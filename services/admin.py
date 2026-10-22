@@ -12,7 +12,9 @@ from django.shortcuts import get_object_or_404, redirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
+from django.utils.text import slugify
 
+from accounts.models import ProviderProfile
 from .models import Category, Service
 
 
@@ -189,6 +191,20 @@ class ServiceAdmin(admin.ModelAdmin):
         if section == "categories" and not categories_allowed and services_allowed:
             return redirect("admin:services_service_management")
 
+        if section == "categories" and request.method == "POST":
+            if not category_admin.has_add_permission(request):
+                raise PermissionDenied
+            category_name = request.POST.get("name", "").strip()
+            category_slug = slugify(category_name)
+            if not category_name or not category_slug:
+                messages.error(request, "Enter a category name that can be used to create a URL slug.")
+            elif Category.objects.filter(name__iexact=category_name).exists() or Category.objects.filter(slug=category_slug).exists():
+                messages.error(request, "A category with that name already exists.")
+            else:
+                Category.objects.create(name=category_name, slug=category_slug)
+                messages.success(request, f"{category_name} was created.")
+                return redirect("admin:services_category_management")
+
         service_queryset = Service.objects.select_related("provider", "category", "provider__user").order_by("-created_at", "name")
         if services_list_allowed:
             service_query = request.GET.get("service_q", "").strip()
@@ -313,13 +329,13 @@ class ServiceAdmin(admin.ModelAdmin):
             "service_metrics": {
                 "total": Service.objects.count(), "active": Service.objects.filter(is_active=True).count(),
                 "inactive": Service.objects.filter(is_active=False).count(),
-                "categories": Category.objects.filter(services__isnull=False).distinct().count(),
+                "providers": ProviderProfile.objects.filter(services__is_active=True, user__is_active=True).distinct().count(),
             },
             "category_metrics": {
                 "total": Category.objects.count(),
                 "available": Category.objects.annotate(_active=Count("services", filter=Q(services__is_active=True, services__provider__user__is_active=True), distinct=True)).filter(_active__gt=0).count(),
-                "without_active": Category.objects.annotate(_active=Count("services", filter=Q(services__is_active=True, services__provider__user__is_active=True), distinct=True)).filter(_active=0).count(),
                 "services": Service.objects.count(),
+                "providers": ProviderProfile.objects.filter(services__category__isnull=False).distinct().count(),
             },
             "service_add_url": reverse("admin:services_service_add"),
             "category_add_url": reverse("admin:services_category_add"),

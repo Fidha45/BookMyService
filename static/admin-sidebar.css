@@ -1,0 +1,77 @@
+/* Shared administrator sidebar presentation. Shell styles handle placement and toggling. */
+.admin-sidebar,
+.bms-admin-sidebar {
+  display:flex;
+  flex-direction:column;
+  width:264px;
+  min-width:0;
+  box-sizing:border-box;
+  padding:16px 13px 13px;
+  overflow-y:auto;
+  border-right:1px solid #ebe8f3;
+  background:#fff;
+  color:#4f4a63;
+  font-family:"DM Sans","Segoe UI",Arial,sans-serif;
+  transition:transform .2s ease;
+}
+.admin-side-nav { display:grid; gap:6px; }
+.admin-nav-link,
+.admin-sub-link {
+  display:flex;
+  align-items:center;
+  min-height:31px;
+  border-radius:8px;
+  color:#4f4a63;
+  font-size:13px;
+  text-decoration:none;
+  transition:background .15s ease,color .15s ease;
+}
+.admin-nav-link { min-height:40px; gap:10px; padding:8px 11px; font-weight:700; }
+.admin-nav-link > span { flex:0 0 18px; width:18px; color:#66509c; font-size:18px; text-align:center; }
+.admin-sub-link { justify-content:space-between; min-height:31px; padding:5px 11px 5px 39px; font-size:12px; }
+.admin-nav-group { display:grid; gap:2px; padding:7px 0 8px; border-bottom:1px solid #f0edf5; }
+.admin-nav-heading { padding:3px 11px 4px; color:#777187; font-size:10px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+.admin-sub-link b { display:grid; flex:0 0 auto; min-width:20px; height:20px; place-items:center; padding:0 5px; border-radius:20px; background:#fce8ec; color:#c53850; font-size:10px; }
+.admin-nav-link:hover,
+.admin-sub-link:hover { color:#5639a4; background:#f3effd; }
+.admin-nav-link.is-active,
+.admin-nav-link.is-current,
+.admin-sub-link.is-active,
+.admin-sub-link.is-current { color:#5536a3; background:#f0ebfc; font-weight:700; }
+.admin-logout { margin-top:auto; padding-top:13px; }
+.admin-logout button {
+  display:flex;
+  width:100%;
+  align-items:center;
+  gap:10px;
+  padding:9px 11px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:#c43b4f;
+  font:inherit;
+  font-size:13px;
+  text-align:left;
+  cursor:pointer;
+}
+.admin-logout button:hover { background:#fff0f1; }
+.admin-logout button span { flex:0 0 auto; font-size:17px; }
+.admin-sidebar a:focus-visible,
+.bms-admin-sidebar a:focus-visible,
+.admin-logout button:focus-visible { outline:3px solid #8d70d7; outline-offset:2px; }
+.admin-menu-backdrop,
+.bms-admin-backdrop { display:none; }
+@media (max-width:1250px) and (min-width:901px) {
+  .admin-sidebar,
+  .bms-admin-sidebar { width:230px; }
+}
+@media (max-width:900px) {
+  .admin-sidebar,
+  .bms-admin-sidebar { width:min(264px,84vw); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .admin-sidebar,
+  .bms-admin-sidebar,
+  .admin-nav-link,
+  .admin-sub-link { transition:none; }
+}

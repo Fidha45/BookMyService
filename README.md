@@ -91,6 +91,12 @@ The local `.env` file is read unless the process already defines the same variab
 
 With `DATABASE_URL` unset, the project uses `db.sqlite3`. Uploaded images are stored under `media/` in development. Production deployments should use durable object storage for uploads and a managed PostgreSQL database.
 
+## Deploy to Render
+
+The repository includes a Render Blueprint in `render.yaml`. After pushing the project to a Git repository, create a Blueprint in Render and select that repository. The Blueprint provisions the web service and PostgreSQL database, installs `requirements-production.txt`, collects static files, applies database migrations at startup, and runs the app with Gunicorn. Render generates `SECRET_KEY` and supplies the database connection and public hostname; keep `DEBUG=False` in production.
+
+`Procfile` provides the same Gunicorn web command for hosts that use Procfiles. `requirements-production.txt` includes the packages from `requirements.txt` plus Gunicorn. Local runserver logs match `*.log` in `.gitignore` and are not deployment files. Before accepting real provider uploads, configure durable object storage for `media/`; Render's service filesystem is not durable storage for user uploads.
+
 Booking request, status, cancellation, and reschedule emails are queued after the booking transaction commits. For local development, the default console backend prints emails in the runserver terminal. Configure the SMTP variables above to deliver email; a missing recipient address or mail server error does not undo a booking. The customer dashboard's booking records include a downloadable PDF confirmation. Providers can open **Earnings** from the navigation or dashboard to see estimates based on completed booking prices; this is booking value, not a payout statement and does not subtract fees, refunds, or taxes.
 
 ## Booking and concurrency design
@@ -125,7 +131,7 @@ Razorpay setup is optional for browsing and booking. For test mode, add test cre
 
 ## Screen recording outline (5–10 minutes)
 
-Use the timed walkthrough in [`docs/SCREEN_RECORDING_SCRIPT.md`](docs/SCREEN_RECORDING_SCRIPT.md) to record the real app in your own voice.
+Use the outline below to record a walkthrough of the real app in your own voice.
 
 1. Introduce the catalog and search/filter results.
 2. Register a customer, view a service, request a future time and inspect the customer dashboard.
@@ -145,7 +151,7 @@ Run `seed_demo_data` locally to create demo accounts/services, then use the cred
 - Administrator verification is a manually managed flag; no external identity verification is connected.
 - PostgreSQL concurrency verification, browser/responsive review, and deployment validation remain to be run.
 - Production uploads need durable object storage; local media files are not a production storage solution.
-- This workspace has no initialized Git repository and Git/GitHub CLI are unavailable. Public repository creation, deployment, and the candidate-recorded video are still pending.
+- A GitHub remote is configured. Public deployment and the candidate-recorded video are still pending.
 
 ## Assessment checklist
 
@@ -157,6 +163,6 @@ Run `seed_demo_data` locally to create demo accounts/services, then use the cred
 | Booking snapshots/references, overlap checks, cancellation, reschedule, reviews | Implemented; automated tests pass |
 | Concurrent double-booking protection | MySQL overlap triggers and provider-row locking; simultaneous HTTP test passed on local MySQL 8.0.33; PostgreSQL verification pending |
 | Admin dashboard, reporting charts, provider verification and Django Admin | Implemented; system checks pass |
-| PostgreSQL production configuration and security settings | Implemented; deployment not configured |
+| PostgreSQL production configuration and security settings | Implemented; Render Blueprint prepared, live deployment pending |
 | REST API | Not implemented; server-rendered flows used |
-| PostgreSQL race-test run, GitHub repo, public deployment, screen recording | Pending; requires PostgreSQL/deployment/GitHub access and candidate-recorded video |
+| PostgreSQL race-test run, public deployment, screen recording | Pending; requires PostgreSQL/deployment access and candidate-recorded video |

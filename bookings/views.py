@@ -15,12 +15,18 @@ from django.db import transaction
 from config.views import forbidden_response
 from services.models import Service
 from .models import Booking, Notification, Payment
-from .logic import available_slots, create_booking, reschedule_booking, transition
+from .logic import available_slots, create_booking, report_booking_problem, reschedule_booking, transition
 
 @login_required
 def book(request, pk):
     service = get_object_or_404(Service, pk=pk, is_active=True, provider__user__is_active=True)
-    if request.user.role != "customer": return forbidden_response(request)
+    if request.user.role != "customer":
+        if request.method == "POST":
+            return forbidden_response(request)
+        if request.user.role == "provider":
+            messages.info(request, "Bookings must be placed from a customer account. Sign in with a customer account to book this service.")
+            return redirect("service_detail", pk=service.pk)
+        return forbidden_response(request)
     default_day = timezone.localdate() + timedelta(days=1)
     selected_day = default_day
     request_key = str(uuid.uuid4())
@@ -46,24 +52,170 @@ def book(request, pk):
         selected_start = ""
     return render(request, "bookings/form.html", {"service": service, "selected_day": selected_day, "slots": slots, "request_key": request_key, "selected_start": selected_start})
 
+
+def _customer_reschedule_booking(request, pk):
+    if request.user.role != "customer":
+        return forbidden_response(request)
+    return get_object_or_404(
+        Booking.objects.select_related("service", "service__category", "service__provider", "service__provider__user"),
+        pk=pk,
+        customer=request.user,
+    )
+
+
+def _reschedule_start(value):
+    start = datetime.fromisoformat(value)
+    if timezone.is_naive(start):
+        return timezone.make_aware(start)
+    return start.astimezone(timezone.get_current_timezone())
+
+
+def _render_reschedule_form(request, booking, day=None, selected_start="", errors=None, status=200):
+    day = day or timezone.localdate(booking.start_at)
+    slots = available_slots(booking.service, day, exclude_booking_id=booking.pk)
+    if selected_start and not any(slot.strftime("%Y-%m-%dT%H:%M") == selected_start for slot in slots):
+        selected_start = ""
+    return render(request, "bookings/reschedule.html", {
+        "booking": booking,
+        "selected_day": day,
+        "minimum_day": timezone.localdate(),
+        "slots": slots,
+        "selected_start": selected_start,
+        "errors": errors or [],
+    }, status=status)
+
+
+@login_required
+def reschedule(request, pk):
+    if request.method not in ("GET", "POST"):
+        return HttpResponseNotAllowed(["GET", "POST"])
+    booking = _customer_reschedule_booking(request, pk)
+    if isinstance(booking, HttpResponse):
+        return booking
+    if not booking.customer_can_reschedule:
+        messages.error(request, "This booking can no longer be rescheduled.")
+        return redirect("dashboard")
+
+    if request.method == "GET":
+        try:
+            selected_day = date.fromisoformat(request.GET.get("date", "")) if request.GET.get("date") else timezone.localdate(booking.start_at)
+        except ValueError:
+            selected_day = timezone.localdate(booking.start_at)
+        return _render_reschedule_form(request, booking, selected_day)
+
+    errors = []
+    raw_start = request.POST.get("start_at", "")
+    try:
+        start = _reschedule_start(raw_start)
+        selected_day = timezone.localtime(start).date()
+        open_slots = available_slots(booking.service, selected_day, exclude_booking_id=booking.pk)
+        if start not in open_slots:
+            raise ValidationError("That time is no longer available. Please choose another slot.")
+        if request.POST.get("back"):
+            return _render_reschedule_form(request, booking, selected_day, raw_start)
+        if not request.POST.get("confirm"):
+            return render(request, "bookings/reschedule.html", {
+                "booking": booking,
+                "confirmation": True,
+                "new_start": start,
+                "new_end": start + timedelta(minutes=booking.duration_at_booking),
+                "new_start_value": timezone.localtime(start).strftime("%Y-%m-%dT%H:%M"),
+            })
+        reschedule_booking(booking, start)
+        messages.success(request, "Your appointment was rescheduled successfully.")
+        return redirect("dashboard")
+    except (ValidationError, ValueError, TypeError, OverflowError) as exc:
+        errors = exc.messages if isinstance(exc, ValidationError) else ["Choose a valid date and time slot."]
+        try:
+            selected_day = date.fromisoformat(raw_start[:10])
+        except ValueError:
+            selected_day = timezone.localdate(booking.start_at)
+        return _render_reschedule_form(request, booking, selected_day, errors=errors, status=400)
+
+
+@login_required
+def reschedule_slots(request, pk):
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+    booking = _customer_reschedule_booking(request, pk)
+    if isinstance(booking, HttpResponse):
+        return booking
+    if not booking.customer_can_reschedule:
+        return JsonResponse({"error": "This booking can no longer be rescheduled."}, status=409)
+    try:
+        selected_day = date.fromisoformat(request.GET.get("date", ""))
+    except ValueError:
+        return JsonResponse({"error": "Choose a valid date."}, status=400)
+    slots = available_slots(booking.service, selected_day, exclude_booking_id=booking.pk)
+    return JsonResponse({"slots": [{"value": timezone.localtime(slot).strftime("%Y-%m-%dT%H:%M"), "label": timezone.localtime(slot).strftime("%I:%M %p").lstrip("0")} for slot in slots]})
+
 @login_required
 def booking_action(request, pk, action):
     booking = get_object_or_404(Booking.objects.select_related("service", "service__provider"), pk=pk)
     if request.method != "POST": return forbidden_response(request)
+    return_to_detail = request.POST.get("return_to") == "detail"
     try:
         if action == "reschedule":
             if request.user != booking.customer or booking.status not in {"pending", "confirmed"}: raise ValidationError("This booking cannot be rescheduled.")
             start = timezone.make_aware(datetime.fromisoformat(request.POST["start_at"]))
             reschedule_booking(booking, start)
             messages.success(request, "Booking rescheduled.")
+        elif action == "report_problem":
+            reason = request.POST.get("reason", "").strip()
+            desc = request.POST.get("description", "").strip()
+            full_description = f"Reason: {reason}\n\n{desc}" if reason else desc
+            report_booking_problem(booking.pk, request.user, full_description)
+            messages.success(request, "Your problem report was sent to the administrator. Completion is paused until it is reviewed.")
         else:
-            status_map = {"confirm": "confirmed", "reject": "rejected", "start": "in_progress", "complete": "completed", "cancel": "cancelled"}
+            status_map = {
+                "confirm": Booking.Status.CONFIRMED,
+                "reject": Booking.Status.REJECTED,
+                "start": Booking.Status.IN_PROGRESS,
+                "complete": Booking.Status.AWAITING_CUSTOMER_CONFIRMATION,
+                "confirm_completion": Booking.Status.COMPLETED,
+                "cancel": Booking.Status.CANCELLED,
+            }
             if action not in status_map: return forbidden_response(request)
             transition(booking, status_map[action], request.user)
-            messages.success(request, "Booking updated.")
+            if action == "complete":
+                messages.success(request, "Service marked as completed. Waiting for customer confirmation.")
+            elif action == "confirm_completion":
+                messages.success(request, "Work completion confirmed. You can now leave a review.")
+            else:
+                messages.success(request, "Booking updated.")
     except (ValidationError, ValueError, KeyError) as e:
         messages.error(request, "; ".join(e.messages) if hasattr(e, "messages") else "Enter a valid date and time.")
-    return redirect("dashboard")
+    return redirect("booking_detail", pk=booking.pk) if return_to_detail else redirect("dashboard")
+
+
+@login_required
+def booking_detail(request, pk):
+    booking = get_object_or_404(
+        Booking.objects.select_related("customer", "service", "service__category", "service__provider", "service__provider__user")
+        .prefetch_related("problem_reports", "payments"), pk=pk,
+    )
+    is_customer = booking.customer_id == request.user.pk
+    is_provider = booking.service.provider.user_id == request.user.pk
+    if not (request.user.is_staff or is_customer or is_provider):
+        return forbidden_response(request)
+    context = {
+        "booking": booking,
+        "is_booking_customer": is_customer,
+        "is_booking_provider": is_provider,
+        "open_problem_report": booking.open_problem_report,
+        "latest_problem_report": booking.latest_problem_report,
+        "latest_payment": booking.payments.order_by("-created_at", "-pk").first(),
+    }
+    if is_provider:
+        context["pending_count"] = Booking.objects.filter(
+            service__provider__user=request.user, status=Booking.Status.PENDING
+        ).count()
+        context["unread_notification_count"] = Notification.objects.filter(
+            recipient=request.user, read_at__isnull=True
+        ).count()
+    if is_customer:
+        context["active_nav"] = "bookings"
+    return render(request, "bookings/detail.html", context)
 
 
 @login_required

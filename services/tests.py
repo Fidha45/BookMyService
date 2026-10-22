@@ -1,4 +1,4 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from accounts.models import ProviderProfile, User
 from .models import Category, Service
@@ -27,6 +27,13 @@ class ServicePermissionTests(TestCase):
 
     def test_provider_can_create_and_edit_own_service(self):
         self.client.force_login(self.provider)
+        add_page = self.client.get(reverse("service_new"))
+        self.assertEqual(add_page.status_code, 200)
+        self.assertTemplateUsed(add_page, "services/provider_form.html")
+        self.assertContains(add_page, "provider-app")
+        edit_page = self.client.get(reverse("service_edit", args=[self.service.pk]))
+        self.assertEqual(edit_page.status_code, 200)
+        self.assertTemplateUsed(edit_page, "services/provider_form.html")
         response = self.client.post(reverse("service_new"), {"category": self.category.pk, "name": "Window repair", "description": "Repair windows", "location": "Delhi", "price": "250.00", "duration_minutes": "60", "is_active": "on"})
         self.assertEqual(response.status_code, 302)
         own = Service.objects.get(name="Window repair")
@@ -36,7 +43,39 @@ class ServicePermissionTests(TestCase):
         own.refresh_from_db()
         self.assertEqual(own.name, "Window repair plus")
 
-    def test_customer_dashboard_shows_pay_button_for_unpaid_upcoming_booking(self):
+    def test_provider_services_page_filters_and_toggles_only_owned_services(self):
+        self.client.force_login(self.provider)
+        inactive = Service.objects.create(
+            provider=self.provider_profile, category=self.category, name="Inactive repair",
+            description="", location="Delhi", price=150, duration_minutes=45, is_active=False,
+        )
+        response = self.client.get(reverse("dashboard"), {
+            "provider_page": "services", "category": self.category.pk, "service_status": "active",
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "provider-service-management-row")
+        self.assertContains(response, self.service.name)
+        self.assertNotContains(response, inactive.name)
+
+        response = self.client.post(reverse("provider_service_action", args=[self.service.pk, "toggle"]))
+        self.assertEqual(response.status_code, 302)
+        self.service.refresh_from_db()
+        self.assertFalse(self.service.is_active)
+
+        response = self.client.post(reverse("provider_service_action", args=[inactive.pk, "toggle"]))
+        self.assertEqual(response.status_code, 302)
+        inactive.refresh_from_db()
+        self.assertTrue(inactive.is_active)
+
+    def test_provider_service_actions_reject_other_owners_and_non_post(self):
+        self.client.force_login(self.other)
+        response = self.client.post(reverse("provider_service_action", args=[self.service.pk, "toggle"]))
+        self.assertEqual(response.status_code, 404)
+        self.client.force_login(self.provider)
+        response = self.client.get(reverse("provider_service_action", args=[self.service.pk, "toggle"]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_customer_dashboard_does_not_show_payment_button(self):
         from datetime import timedelta
         from django.utils import timezone
         from bookings.models import Booking
@@ -53,8 +92,35 @@ class ServicePermissionTests(TestCase):
         self.client.force_login(self.customer)
         response = self.client.get(reverse("dashboard"))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Pay securely")
-        self.assertContains(response, reverse("pay_booking", args=[booking.pk]))
+        self.assertNotContains(response, "Pay securely")
+        self.assertNotContains(response, reverse("pay_booking", args=[booking.pk]))
+        bookings_page = self.client.get(reverse("dashboard"), {"view": "bookings"})
+        self.assertEqual(bookings_page.status_code, 200)
+        self.assertContains(bookings_page, "Manage your bookings")
+        self.assertContains(bookings_page, booking.service.name)
+        self.assertContains(bookings_page, "customer-booking-tabs")
+        self.assertNotContains(bookings_page, "Pay securely")
+
+    def test_customer_dashboard_includes_database_backed_service_discovery(self):
+        self.client.force_login(self.customer)
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Welcome back")
+        self.assertContains(response, "Explore services")
+        self.assertContains(response, "Recommended for you")
+        self.assertContains(response, "Upcoming bookings")
+        self.assertContains(response, "Recent bookings")
+        self.assertContains(response, "customer-overview-hero")
+        from django.templatetags.static import static
+        self.assertContains(response, static("images/services/House cleaning.jpg"))
+        self.assertContains(response, "customer-card-favourite")
+        self.assertContains(response, "id=\"recommended-services\"")
+        self.assertContains(response, self.service.name)
+        self.assertContains(response, "View service")
+        self.assertNotContains(response, "UP NEXT")
+        self.assertNotContains(response, "YOUR HISTORY")
+        self.assertLessEqual(len(response.context["popular_services"]), 6)
+        self.assertIn(self.service, response.context["popular_services"])
 
     def test_catalog_only_shows_active_services(self):
         self.service.is_active = False
@@ -70,6 +136,16 @@ class ServicePermissionTests(TestCase):
         detail = self.client.get(reverse("service_detail", args=[self.service.pk]))
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, self.provider_profile.display_name)
+
+    def test_authenticated_customer_homepage_reuses_public_home_and_keeps_sidebar(self):
+        self.client.force_login(self.customer)
+        response = self.client.get(reverse("service_list"))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "services/list.html")
+        self.assertContains(response, "customer-app-layout")
+        self.assertContains(response, "customer-sidebar")
+        self.assertContains(response, "showcase-hero")
+        self.assertContains(response, "Popular services")
         explore = self.client.get(reverse("service_explore"))
         self.assertEqual(explore.status_code, 200)
         self.assertEqual(explore.context["page"].paginator.count, 1)
@@ -154,14 +230,31 @@ class ServicePermissionTests(TestCase):
         provider_dashboard = self.client.get(reverse("dashboard"))
         self.assertEqual(provider_dashboard.status_code, 200)
         self.assertContains(provider_dashboard, "Provider dashboard")
-        self.assertContains(provider_dashboard, "Your estimated earnings")
+        self.assertContains(provider_dashboard, "Good to see you")
         self.assertContains(provider_dashboard, "Booking requests")
-        self.assertContains(provider_dashboard, "Your availability")
-        self.assertContains(provider_dashboard, "Recent customer reviews")
+        self.assertContains(provider_dashboard, "Recent bookings")
+        self.assertContains(provider_dashboard, "My services")
+        self.assertContains(provider_dashboard, "Availability")
+        self.assertContains(provider_dashboard, "Customer reviews")
+        self.assertNotContains(provider_dashboard, "Earnings")
+        availability_page = self.client.get(reverse("provider_settings"), {
+            "section": "availability", "date": "2026-10-22",
+        })
+        self.assertEqual(availability_page.status_code, 200)
+        self.assertContains(availability_page, "Availability Management")
+        booking_requests = self.client.get(reverse("dashboard"), {"provider_page": "bookings"})
+        self.assertEqual(booking_requests.status_code, 200)
+        self.assertContains(booking_requests, "Booking Requests")
+        service_page = self.client.get(reverse("dashboard"), {"provider_page": "services"})
+        self.assertEqual(service_page.status_code, 200)
+        self.assertContains(service_page, "My Services")
+        review_page = self.client.get(reverse("dashboard"), {"provider_page": "reviews"})
+        self.assertEqual(review_page.status_code, 200)
+        self.assertContains(review_page, "completed services")
         filtered_dashboard = self.client.get(reverse("dashboard"), {"q": "Repair"})
         self.assertEqual(filtered_dashboard.status_code, 200)
         self.assertIn(self.service, filtered_dashboard.context["services"])
-        self.assertContains(filtered_dashboard, "Matching bookings")
+        self.assertContains(filtered_dashboard, "Showing matching services and bookings")
         staff = User.objects.create_superuser(email="admin@test.example", password="Safe-pass-123")
         self.client.force_login(staff)
         dashboard = self.client.get(reverse("dashboard"))
@@ -192,6 +285,10 @@ class ServicePermissionTests(TestCase):
         self.assertIsNotNone(self.provider_profile.approval_reviewed_at)
         self.assertTrue(self.provider.is_active)
         self.assertTrue(self.service.is_active)
+        repeated_approval = self.client.post(reverse("admin_provider_review", args=[self.provider_profile.pk, "reject"]))
+        self.assertEqual(repeated_approval.status_code, 302)
+        self.provider_profile.refresh_from_db()
+        self.assertEqual(self.provider_profile.approval_status, ProviderProfile.ApprovalStatus.APPROVED)
 
         rejected = self.client.post(reverse("admin_provider_review", args=[self.other_profile.pk, "reject"]))
         self.assertEqual(rejected.status_code, 302)
@@ -353,11 +450,50 @@ class DjangoAdminInterfaceTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_superuser(email="panel-admin@example.test", password="Safe-pass-123")
 
+    def test_admin_booking_bulk_actions_work_without_bypassing_completion_permissions(self):
+        from datetime import timedelta
+        from django.utils import timezone
+        from bookings.models import Booking
+
+        provider = User.objects.create_user(email="booking-provider@example.test", password="Safe-pass-123", role=User.Role.PROVIDER)
+        profile = ProviderProfile.objects.create(user=provider, display_name="Booking provider", location="Kochi")
+        category = Category.objects.create(name="Admin booking services", slug="admin-booking-services")
+        service = Service.objects.create(provider=profile, category=category, name="Admin booking service", description="", location="Kochi", price=100, duration_minutes=30)
+        customer = User.objects.create_user(email="booking-customer@example.test", password="Safe-pass-123", role=User.Role.CUSTOMER)
+        start = timezone.now() + timedelta(days=2)
+        booking = Booking.objects.create(
+            customer=customer, service=service, provider_lock=profile, start_at=start,
+            end_at=start + timedelta(minutes=30), price_at_booking=100, duration_at_booking=30,
+        )
+        self.client.force_login(self.admin)
+        changelist = reverse("admin:bookings_booking_changelist")
+        response = self.client.get(changelist)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Confirm selected pending bookings")
+        self.assertContains(response, "Start selected confirmed bookings")
+        self.assertNotContains(response, "Request customer confirmation for selected in-progress bookings")
+
+        response = self.client.post(changelist, {
+            "action": "confirm_bookings", "_selected_action": [str(booking.pk)], "index": "0",
+        })
+        self.assertEqual(response.status_code, 302)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.Status.CONFIRMED)
+
+        response = self.client.post(changelist, {
+            "action": "start_bookings", "_selected_action": [str(booking.pk)], "index": "0",
+        })
+        self.assertEqual(response.status_code, 302)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.Status.IN_PROGRESS)
+
     def test_admin_login_branding_dashboard_and_post_logout(self):
+        from django.contrib.staticfiles.storage import staticfiles_storage
+
         login_page = self.client.get(reverse("admin:login"))
         self.assertEqual(login_page.status_code, 200)
         self.assertContains(login_page, "BookMyService")
-        self.assertContains(login_page, "admin.css")
+        self.assertContains(login_page, staticfiles_storage.url("admin.css"))
 
         login_response = self.client.post(reverse("admin:login"), {
             "username": self.admin.email, "password": "Safe-pass-123",
@@ -376,6 +512,56 @@ class DjangoAdminInterfaceTests(TestCase):
         self.assertNotContains(dashboard, "admin-brand-label")
         self.assertEqual(self.client.get(reverse("admin:password_change")).status_code, 200)
         self.assertEqual(self.client.get("/").status_code, 200)
+        logout = self.client.post(reverse("admin:logout"))
+        self.assertEqual(logout.status_code, 302)
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    @override_settings(STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    })
+    def test_shared_admin_navigation_appears_on_management_and_records_pages(self):
+        self.client.force_login(self.admin)
+        dashboard = self.client.get(reverse("dashboard"))
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertContains(dashboard, 'id="admin-sidebar"')
+        self.assertContains(dashboard, 'id="admin-menu-toggle"')
+        self.assertContains(dashboard, 'class="admin-nav-link is-active"')
+        self.assertContains(dashboard, "admin-sidebar.css?v=1")
+        urls = (
+            reverse("admin:accounts_user_changelist"),
+            reverse("admin:accounts_user_changelist") + "?role__exact=customer",
+            reverse("admin:accounts_providerprofile_changelist"),
+            reverse("admin:accounts_providerprofile_approval_list"),
+            reverse("admin:bookings_booking_changelist"),
+            reverse("admin:bookings_booking_changelist") + "?status__exact=pending",
+            reverse("admin:bookings_booking_changelist") + "?status__exact=confirmed",
+            reverse("admin:bookings_booking_changelist") + "?status__exact=in_progress",
+            reverse("admin:bookings_booking_changelist") + "?status__exact=awaiting_customer_confirmation",
+            reverse("admin:bookings_booking_changelist") + "?status__exact=completed",
+            reverse("admin:bookings_booking_changelist") + "?status__exact=rejected",
+            reverse("admin:bookings_booking_changelist") + "?status__exact=cancelled",
+            reverse("admin:bookings_problemreport_changelist"),
+            reverse("admin:services_service_management"),
+            reverse("admin:services_category_management"),
+        )
+        for url in urls:
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(response.status_code, 200)
+                self.assertContains(response, 'id="bms-admin-sidebar"')
+                self.assertContains(response, 'id="bms-admin-nav-toggle"')
+                self.assertContains(response, "admin-sidebar.css?v=1")
+                self.assertContains(response, "link.classList.add('is-current')")
+                self.assertContains(response, f'action="{reverse("admin:logout")}"')
+                for label in (
+                    "All users", "Customers", "Service providers", "Pending approvals",
+                    "Service Management", "Categories", "All bookings", "Pending",
+                    "Confirmed", "In progress", "Awaiting confirmation", "Completed",
+                    "Rejected", "Cancelled", "Reported issues", "Reviews", "Settings",
+                ):
+                    self.assertContains(response, label)
+                self.assertContains(response, "matchMedia('(max-width: 900px)')")
         logout = self.client.post(reverse("admin:logout"))
         self.assertEqual(logout.status_code, 302)
         self.assertNotIn("_auth_user_id", self.client.session)
@@ -478,9 +664,13 @@ class DjangoAdminInterfaceTests(TestCase):
         self.assertEqual(self.client.get(management_url).status_code, 403)
         self.assertEqual(self.client.post(reverse("admin:services_service_toggle", args=[service.pk])).status_code, 403)
 
-    def test_service_management_pages_are_separate_and_sidebar_is_removed(self):
+    @override_settings(STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    })
+    def test_service_management_pages_use_the_shared_admin_sidebar(self):
         self.client.force_login(self.admin)
-        dashboard = self.client.get(reverse("admin:index"))
+        dashboard = self.client.get(reverse("dashboard"))
         self.assertEqual(dashboard.status_code, 200)
         self.assertContains(dashboard, "Service Management")
         self.assertContains(dashboard, reverse("admin:services_service_management"))
@@ -488,6 +678,7 @@ class DjangoAdminInterfaceTests(TestCase):
         self.assertNotContains(dashboard, 'href="/admin/services/category/"')
         page = self.client.get(reverse("admin:services_service_management"))
         self.assertEqual(page.status_code, 200)
+        self.assertContains(page, 'id="bms-admin-sidebar"')
         self.assertNotContains(page, 'id="nav-sidebar"')
         self.assertNotContains(page, 'id="toggle-nav-sidebar"')
         self.assertContains(page, "Services")
@@ -496,6 +687,7 @@ class DjangoAdminInterfaceTests(TestCase):
         self.assertContains(page, 'href="%s"' % reverse("admin:services_category_management"))
         categories = self.client.get(reverse("admin:services_category_management"))
         self.assertEqual(categories.status_code, 200)
+        self.assertContains(categories, 'id="bms-admin-sidebar"')
         self.assertNotContains(categories, "Repair sample")
         self.assertContains(categories, 'href="%s"' % reverse("admin:services_service_management"))
         self.assertContains(categories, "Category descriptions are not stored in the current data model")

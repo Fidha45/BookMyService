@@ -1,0 +1,6 @@
+  </div>
+  <script>
+  (() => { const root = document.currentScript.closest('.provider-app'); const toggle = root.querySelector('.provider-menu-toggle'); const sidebar = root.querySelector('.provider-sidebar'); const backdrop = root.querySelector('.provider-sidebar-backdrop'); const close = () => { root.classList.add('sidebar-collapsed'); sidebar.classList.remove('is-open'); sidebar.setAttribute('aria-hidden', 'true'); toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-label', 'Open navigation'); backdrop.classList.remove('is-visible'); }; const open = () => { root.classList.remove('sidebar-collapsed'); sidebar.classList.add('is-open'); sidebar.setAttribute('aria-hidden', 'false'); toggle.setAttribute('aria-expanded', 'true'); toggle.setAttribute('aria-label', 'Close navigation'); backdrop.classList.add('is-visible'); }; toggle.addEventListener('click', () => root.classList.contains('sidebar-collapsed') ? open() : close()); backdrop.addEventListener('click', close); document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); }); if (matchMedia('(max-width: 900px)').matches) close(); })();
+  </script>
+  </div>
+</div>

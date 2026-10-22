@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Availability Management · BookMyService{% endblock %}
+{% block body_class %}provider-console provider-settings-page provider-availability-page{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'provider-dashboard.css' %}?v=provider-header-compact-20261022-2">{% endblock %}
+{% block content %}
+{% include 'dashboard/provider_chrome_open.html' with active_provider_nav='availability' sidebar_expanded=True %}
+<header class="availability-page-heading">
+  <div><h1>Availability Management</h1><p>Set your available dates and time slots for each service. Customers can book based on your availability.</p></div>
+  <a class="provider-button provider-button-primary" href="#weekly-hours" data-open-hours><span aria-hidden="true">＋</span> Add Availability</a>
+</header>
+
+<div class="availability-workspace">
+  <div class="availability-left-column">
+    <section class="availability-card availability-calendar-card" aria-labelledby="availability-calendar-title">
+      <h2 id="availability-calendar-title"><span aria-hidden="true">▦</span>Select a Date</h2>
+      <div class="availability-calendar-heading">
+        <a class="availability-month-button" href="?section=availability&amp;date={{ previous_month|date:'Y-m-d' }}{% if selected_service %}&amp;service={{ selected_service.pk }}{% endif %}" aria-label="Previous month">‹</a>
+        <strong>{{ selected_date|date:'F Y' }}</strong>
+        <a class="availability-month-button" href="?section=availability&amp;date={{ next_month|date:'Y-m-d' }}{% if selected_service %}&amp;service={{ selected_service.pk }}{% endif %}" aria-label="Next month">›</a>
+      </div>
+      <div class="availability-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+      <div class="availability-month-grid" role="group" aria-label="Choose a date">
+        {% for week in calendar_weeks %}<div class="availability-calendar-week">
+          {% for day in week %}<a class="availability-calendar-day{% if day == selected_date %} is-selected{% endif %}{% if day.month != selected_date.month %} is-other-month{% endif %}" href="?section=availability&amp;date={{ day|date:'Y-m-d' }}{% if selected_service %}&amp;service={{ selected_service.pk }}{% endif %}" aria-label="{{ day|date:'l, j F Y' }}"{% if day == selected_date %} aria-current="date"{% endif %}>{{ day.day }}</a>{% endfor %}
+        </div>{% endfor %}
+      </div>
+      <div class="availability-calendar-legend"><span><i class="legend-selected"></i>Selected date</span><span><i class="legend-booked"></i>Booked appointments</span></div>
+    </section>
+
+    <section class="availability-card availability-quick-actions" aria-labelledby="availability-quick-title">
+      <h2 id="availability-quick-title"><span aria-hidden="true">ϟ</span>Quick Actions</h2>
+      <a href="#weekly-hours" data-open-hours><span aria-hidden="true">↻</span>Manage weekly hours</a>
+      <a href="{% url 'provider_settings' %}#blocked-times"><span aria-hidden="true">⊖</span>Block unavailable time</a>
+      <a href="{% url 'dashboard' %}?provider_page=bookings"><span aria-hidden="true">▤</span>View booking requests</a>
+    </section>
+  </div>
+
+  <div class="availability-right-column">
+    <section class="availability-card availability-selection-card" aria-label="Selected date and service">
+      <div class="availability-selected-date"><span aria-hidden="true">▦</span><div><small>Selected Date</small><strong>{{ selected_date|date:'j F Y' }}</strong></div></div>
+      <form method="get" action="{% url 'provider_settings' %}" class="availability-service-select">
+        <input type="hidden" name="section" value="availability"><input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+        <label for="availability-service">Select Service</label>
+        <select id="availability-service" name="service" {% if not provider_services %}disabled{% endif %}>
+          {% for service in provider_services %}<option value="{{ service.pk }}"{% if selected_service.pk == service.pk %} selected{% endif %}>{{ service.name }}</option>{% endfor %}
+        </select>
+        {% if provider_services %}<button type="submit" class="availability-apply-button">Show</button>{% endif %}
+      </form>
+    </section>
+
+    <section class="availability-card availability-time-card" aria-labelledby="availability-time-title">
+      <div class="availability-time-heading"><h2 id="availability-time-title"><span aria-hidden="true">◷</span>Time Slots</h2><a class="provider-button provider-button-primary" href="#weekly-hours" data-open-hours><span aria-hidden="true">＋</span>Add Time Slot</a></div>
+      {% if not selected_service %}<div class="availability-empty"><strong>No services yet</strong><p>Add a service before managing its availability.</p><a href="{% url 'service_new' %}">Add a service</a></div>
+      {% else %}<div class="availability-slot-list">
+        {% for slot in calendar_slots %}<article class="availability-slot-row">
+          <strong class="availability-slot-time">{{ slot.start|date:'g:i A' }} – {{ slot.end|date:'g:i A' }}</strong>
+          {% if slot.status == 'available' %}<span class="availability-state is-available">Available</span><span class="availability-slot-service">{{ selected_service.name }}</span>
+          {% else %}<span class="availability-state is-booked">{{ slot.booking.get_status_display }}</span><span class="availability-slot-service"><span aria-hidden="true">♙</span>{{ slot.booking.customer.get_full_name|default:slot.booking.customer.email }} <a href="{% url 'booking_detail' slot.booking.pk %}" aria-label="View booking details">›</a></span>{% endif %}
+        </article>{% empty %}<div class="availability-empty"><strong>No time slots for this date</strong><p>Check your weekly hours or choose another date.</p><a href="{% url 'provider_settings' %}#availability">Manage weekly hours</a></div>{% endfor %}
+      </div>{% endif %}
+      <aside class="availability-note"><span aria-hidden="true">ⓘ</span><div><strong>Note</strong><p>Only open appointment times are shown to customers. Existing bookings remain reserved.</p></div></aside>
+    </section>
+  </div>
+</div>
+
+<details class="availability-hours-editor" id="weekly-hours"{% if schedule.errors or availability_form_submitted %} open{% endif %}>
+  <summary><span class="availability-hours-summary-icon" aria-hidden="true">◷</span><span><strong>Availability hours</strong><small>Choose the weekly hours when customers can book this service.</small></span><span class="availability-hours-summary-action">Edit hours</span></summary>
+  <form method="post" action="{% url 'provider_settings' %}?section=availability" class="availability-hours-form">
+    {% csrf_token %}<input type="hidden" name="action" value="save_availability"><input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+    {% if selected_service %}<input type="hidden" name="service" value="{{ selected_service.pk }}">{% endif %}
+    {{ schedule.management_form }}{% if schedule.non_form_errors %}<div class="field-errors">{{ schedule.non_form_errors }}</div>{% endif %}
+    <div class="availability-hours-grid">
+      {% for row in availability_rows %}<div class="availability-hours-row"><strong>{{ row.name }}</strong><label for="{{ row.form.start_time.id_for_label }}">From</label>{{ row.form.start_time }}<span>to</span><label class="visually-hidden" for="{{ row.form.end_time.id_for_label }}">Until</label>{{ row.form.end_time }}{% if row.form.non_field_errors %}<div class="field-errors">{{ row.form.non_field_errors }}</div>{% endif %}</div>{% endfor %}
+    </div>
+    <button class="provider-button provider-button-primary" type="submit">Save availability hours</button>
+  </form>
+</details>
+{% include 'dashboard/provider_chrome_close.html' %}
+<script>
+  document.querySelectorAll('[data-open-hours]').forEach(link => link.addEventListener('click', () => {
+    const editor = document.getElementById('weekly-hours');
+    if (editor) editor.open = true;
+  }));
+</script>
+{% endblock %}

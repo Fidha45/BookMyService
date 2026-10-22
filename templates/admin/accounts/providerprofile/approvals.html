@@ -1,0 +1,26 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}Pending Approvals | BookMyService{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin-accounts.css' %}?v=2">{% endblock %}
+{% block content_title %}{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a><span aria-hidden="true"> › </span><span aria-current="page">Pending Approvals</span></div>{% endblock %}
+{% block content %}
+<main class="bms-approval-page" id="content-main">
+  <header class="bms-approval-heading"><div><span>PROVIDER APPROVALS</span><h1>Pending Approvals</h1><p>Review and approve service providers. Approval is separate from account activation and service listing status.</p></div></header>
+  <section class="bms-approval-metrics" aria-label="Approval summary">
+    <article><span class="is-amber">◷</span><div><small>Pending approvals</small><strong>{{ approval_metrics.pending }}</strong></div></article>
+    <article><span class="is-green">✓</span><div><small>Approved this month</small><strong>{{ approval_metrics.approved_month }}</strong></div></article>
+    <article><span class="is-rose">×</span><div><small>Rejected this month</small><strong>{{ approval_metrics.rejected_month }}</strong></div></article>
+    <article><span class="is-purple">♙</span><div><small>Total pending services</small><strong>{{ approval_metrics.services }}</strong></div></article>
+  </section>
+  <section class="bms-approval-card">
+    <form class="bms-approval-search" method="get"><label class="visually-hidden" for="approval-search">Search provider name, email, or location</label><input id="approval-search" type="search" name="q" value="{{ approval_query }}" placeholder="Search by provider name, email or service type..."><button type="submit">Filter</button></form>
+    <div class="bms-approval-table-scroll"><table class="bms-approval-table"><thead><tr><th>#</th><th>Provider</th><th>Email</th><th>Services</th><th>Location</th><th>Submitted on</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+      {% for provider in approval_page %}<tr><td>#PRV{{ provider.pk|stringformat:'03d' }}</td><td><a href="#provider-details"><strong>{{ provider.display_name }}</strong><small>{{ provider.services.all|join:', ' }}</small></a></td><td>{{ provider.user.email }}</td><td>{{ provider.approval_service_count }} service{{ provider.approval_service_count|pluralize }}</td><td>⌖ {{ provider.location }}</td><td>{{ provider.user.date_joined|date:'M j, Y' }}<small>{{ provider.user.date_joined|date:'g:i A' }}</small></td><td><span class="bms-approval-pending">● Pending review</span></td><td><div class="bms-approval-actions"><a class="bms-approval-view" href="{% url 'admin:accounts_providerprofile_change' provider.pk %}">View</a><form method="post" action="{% url 'admin_provider_review' provider.pk 'approve' %}">{% csrf_token %}<button class="bms-approval-approve" type="submit">Approve</button></form><form method="post" action="{% url 'admin_provider_review' provider.pk 'reject' %}">{% csrf_token %}<button class="bms-approval-reject" type="submit">Reject</button></form></div></td></tr>
+      {% empty %}<tr><td colspan="8"><div class="bms-approval-empty">No pending provider approvals.</div></td></tr>{% endfor %}
+    </tbody></table></div>
+    <nav class="bms-approval-pagination" aria-label="Approval pages"><span>Showing {{ approval_page.start_index }}–{{ approval_page.end_index }} of {{ approval_page.paginator.count }} pending approvals</span><div>{% if approval_previous_url %}<a href="{{ approval_previous_url }}" aria-label="Previous page">‹</a>{% endif %}<strong>{{ approval_page.number }}</strong>{% if approval_next_url %}<a href="{{ approval_next_url }}" aria-label="Next page">›</a>{% endif %}</div></nav>
+  </section>
+  {% if selected_provider %}<section class="bms-provider-detail" id="provider-details"><header><div><span aria-hidden="true">♙</span><div><h2>Provider details</h2><p>Review profile and submitted information before approval.</p></div></div><a href="{% url 'admin:accounts_providerprofile_change' selected_provider.pk %}">View full profile</a></header><div class="bms-provider-detail-grid"><div><strong>{{ selected_provider.display_name }}</strong><p>{{ selected_provider.user.email }}</p><p>{{ selected_provider.user.phone }}</p><p>{{ selected_provider.location }}</p></div><div><strong>Services offered</strong>{% for service in selected_provider.services.all %}<p>• {{ service.name }} <small>{{ service.category.name }}</small></p>{% empty %}<p>No services listed.</p>{% endfor %}</div><div><strong>Provider account</strong><p>Joined {{ selected_provider.user.date_joined|date:'M j, Y' }}</p><p>Approval status: {{ selected_provider.get_approval_status_display }}</p></div></div></section>{% endif %}
+</main>
+{% endblock %}

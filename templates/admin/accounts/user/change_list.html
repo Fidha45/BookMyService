@@ -1,0 +1,15 @@
+{% extends "admin/change_list.html" %}
+{% load static admin_list %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin-accounts.css' %}?v=1">{% endblock %}
+{% block content_title %}<div class="bms-account-page-heading"><div><span>USER MANAGEMENT</span><h1>All Users</h1><p>Manage all customers and service providers on the platform.</p></div>{% if has_add_permission %}<a class="bms-account-add" href="{% url 'admin:accounts_user_add' %}">＋ Add User</a>{% endif %}</div>{% endblock %}
+{% block object-tools %}{% endblock %}
+{% block search %}<form class="bms-account-filters" method="get" action=""><label class="visually-hidden" for="user-role">User type</label><select id="user-role" name="role__exact"><option value="">All users</option><option value="customer" {% if request.GET.role__exact == 'customer' %}selected{% endif %}>Customers</option><option value="provider" {% if request.GET.role__exact == 'provider' %}selected{% endif %}>Service providers</option></select><label class="visually-hidden" for="user-status">User status</label><select id="user-status" name="is_active__exact"><option value="">All status</option><option value="1" {% if request.GET.is_active__exact == '1' %}selected{% endif %}>Active</option><option value="0" {% if request.GET.is_active__exact == '0' %}selected{% endif %}>Inactive</option></select><label class="visually-hidden" for="user-sort">Sort users</label><select id="user-sort" name="o"><option value="-3" {% if request.GET.o == '-3' or not request.GET.o %}selected{% endif %}>Newest first</option><option value="3" {% if request.GET.o == '3' %}selected{% endif %}>Oldest first</option><option value="1" {% if request.GET.o == '1' %}selected{% endif %}>Name A–Z</option></select><label class="visually-hidden" for="user-search">Search users</label><input id="user-search" type="search" name="q" value="{{ cl.query }}" placeholder="Search by name, email or type..."><button type="submit">Filter</button></form>{% endblock %}
+{% block filters %}{% endblock %}
+{% block content %}
+  <section class="bms-account-metrics" aria-label="User statistics">
+    <article><span class="bms-account-metric-icon is-purple" aria-hidden="true">♟</span><div><span>Total users</span><strong>{{ user_metrics.total }}</strong><small>+{{ user_metrics.joined_this_month }} this month</small></div></article>
+    <article><span class="bms-account-metric-icon is-blue" aria-hidden="true">C</span><div><span>Customers</span><strong>{{ user_metrics.customers }}</strong><small>Customer accounts</small></div></article>
+    <article><span class="bms-account-metric-icon is-green" aria-hidden="true">P</span><div><span>Service providers</span><strong>{{ user_metrics.providers }}</strong><small>Provider accounts</small></div></article>
+  </section>
+  {{ block.super }}
+{% endblock %}

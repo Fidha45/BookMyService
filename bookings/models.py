@@ -15,10 +15,11 @@ class Booking(models.Model):
         PENDING="pending", "Pending"
         CONFIRMED="confirmed", "Confirmed"
         IN_PROGRESS="in_progress", "In progress"
+        AWAITING_CUSTOMER_CONFIRMATION="awaiting_customer_confirmation", "Awaiting customer confirmation"
         COMPLETED="completed", "Completed"
         REJECTED="rejected", "Rejected"
         CANCELLED="cancelled", "Cancelled"
-    OCCUPYING = (Status.PENDING, Status.CONFIRMED, Status.IN_PROGRESS)
+    OCCUPYING = (Status.PENDING, Status.CONFIRMED, Status.IN_PROGRESS, Status.AWAITING_CUSTOMER_CONFIRMATION)
     customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="bookings")
     # Denormalized solely to let PostgreSQL enforce provider/time overlap with a
     # GiST exclusion constraint. It is populated from service.provider at create.
@@ -29,7 +30,7 @@ class Booking(models.Model):
     end_at = models.DateTimeField()
     price_at_booking = models.DecimalField(max_digits=9, decimal_places=2)
     duration_at_booking = models.PositiveSmallIntegerField()
-    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    status = models.CharField(max_length=32, choices=Status.choices, default=Status.PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     accepted_at = models.DateTimeField(null=True, blank=True)
@@ -48,7 +49,7 @@ class Booking(models.Model):
                     ("provider_lock", RangeOperators.EQUAL),
                     (Func(F("start_at"), F("end_at"), Value("[)"), function="TSTZRANGE", output_field=DateTimeRangeField()), RangeOperators.OVERLAPS),
                 ],
-                condition=Q(status__in=("pending", "confirmed", "in_progress")),
+                condition=Q(status__in=("pending", "confirmed", "in_progress", "awaiting_customer_confirmation")),
             ),
         ]
     @property
@@ -68,6 +69,54 @@ class Booking(models.Model):
             self.status in (self.Status.PENDING, self.Status.CONFIRMED)
             and self.start_at > timezone.now()
         )
+
+    @property
+    def open_problem_report(self):
+        return self.problem_reports.filter(status="open").first()
+
+    @property
+    def latest_problem_report(self):
+        return self.problem_reports.first()
+
+
+class ProblemReport(models.Model):
+    class Status(models.TextChoices):
+        OPEN = "open", "Open"
+        RESOLVED = "resolved", "Resolved"
+
+    booking = models.ForeignKey(Booking, on_delete=models.CASCADE, related_name="problem_reports")
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="booking_problem_reports")
+    description = models.TextField(max_length=2000)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.OPEN)
+    resolution = models.TextField(blank=True)
+    reported_at = models.DateTimeField(auto_now_add=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-reported_at", "-pk"]
+        indexes = [models.Index(fields=["booking", "status"])]
+
+    @property
+    def reason(self):
+        if self.description and self.description.startswith("Reason: ") and "\n\n" in self.description:
+            return self.description.split("\n\n", 1)[0].replace("Reason: ", "").strip()
+        return "Service issue"
+
+    @property
+    def clean_description(self):
+        if self.description and self.description.startswith("Reason: ") and "\n\n" in self.description:
+            return self.description.split("\n\n", 1)[1].strip()
+        return self.description
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.booking_id and self.customer_id and self.booking.customer_id != self.customer_id:
+            raise ValidationError({"customer": "The report must be filed by the booking customer."})
+        if self.status == self.Status.RESOLVED and not self.resolution.strip():
+            raise ValidationError({"resolution": "Enter the administrator's resolution before closing this report."})
+
+    def __str__(self):
+        return f"Problem report for booking {self.booking_id} ({self.get_status_display()})"
 
 
 class Notification(models.Model):

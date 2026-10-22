@@ -2,147 +2,335 @@
 {% block title %}Administration · BookMyService{% endblock %}
 {% load static %}
 {% block body_class %}admin-console{% endblock %}
-{% block extra_head %}<link rel="stylesheet" href="{% static 'admin-dashboard.css' %}?v=4">{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'admin-dashboard.css' %}?v=11">
+<link rel="stylesheet" href="{% static 'admin-sidebar.css' %}?v=1">
+{% endblock %}
 {% block content %}
-<div class="admin-app" id="admin-app">
-  <aside class="admin-sidebar" id="admin-sidebar" aria-label="Administrator navigation">
-    <a class="admin-brand" href="{% url 'dashboard' %}"><span class="admin-brand-mark">b</span><span>bookmy<span>service</span></span></a>
-    <nav class="admin-side-nav">
-      <a class="admin-nav-link is-active" href="{% url 'dashboard' %}"><span>⌂</span>Dashboard</a>
-      <div class="admin-nav-group"><span class="admin-nav-heading">User management</span>
-        <a class="admin-sub-link" href="{% url 'admin:accounts_user_changelist' %}">All users</a>
-        <a class="admin-sub-link" href="{% url 'admin:accounts_user_changelist' %}?role__exact=customer">Customers</a>
-        <a class="admin-sub-link" href="{% url 'admin:accounts_providerprofile_changelist' %}">Service providers</a>
-        <a class="admin-sub-link" href="?approval_size=25#provider-approvals">Pending approvals <b>{{ stats.pending_approvals }}</b></a>
-      </div>
-      <div class="admin-nav-group"><span class="admin-nav-heading">Service management</span>
-        <a class="admin-sub-link" href="{% url 'admin:services_service_management' %}">Service Management</a>
-      </div>
-      <div class="admin-nav-group"><span class="admin-nav-heading">Booking management</span>
-        <a class="admin-sub-link" href="#bookings">All bookings</a>
-        <a class="admin-sub-link" href="?booking_status=pending#bookings">Pending</a>
-        <a class="admin-sub-link" href="?booking_status=in_progress#bookings">In progress</a>
-        <a class="admin-sub-link" href="?booking_status=completed#bookings">Completed</a>
-        <a class="admin-sub-link" href="?booking_status=cancelled#bookings">Cancelled</a>
-      </div>
-      <div class="admin-nav-group"><span class="admin-nav-heading">Payments & reviews</span>
-        <a class="admin-sub-link" href="{% url 'admin:reviews_review_changelist' %}">All reviews</a>
-      </div>
-      <div class="admin-nav-group"><span class="admin-nav-heading">Reports & settings</span>
-        <a class="admin-sub-link" href="#analytics">User and service reports</a>
-        <a class="admin-sub-link" href="{% url 'admin:accounts_user_changelist' %}?is_staff__exact=1">Manage administrators</a>
-      </div>
-    </nav>
-    <form class="admin-logout" method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit"><span aria-hidden="true">↪</span>Log out</button></form>
-  </aside>
-  <button class="admin-menu-backdrop" id="admin-menu-backdrop" type="button" aria-label="Close administrator navigation" tabindex="-1"></button>
-
-  <div class="admin-workspace">
-    <header class="admin-topbar">
-      <button class="admin-menu-toggle" id="admin-menu-toggle" type="button" aria-controls="admin-sidebar" aria-expanded="true" aria-label="Toggle administrator menu">☰</button>
-      <form class="admin-global-search" method="get" action="{% url 'dashboard' %}" role="search">
-        <label class="visually-hidden" for="admin-search">Search users, services and bookings</label>
-        <span aria-hidden="true">⌕</span><input id="admin-search" type="search" name="q" value="{{ query }}" placeholder="Search users, services, bookings…">
-        <input type="hidden" name="booking_status" value="{{ booking_status }}"><input type="hidden" name="user_type" value="{{ user_type }}">
-      </form>
-      <a class="admin-notification" href="{% url 'notifications' %}" aria-label="Notifications{% if unread_notification_count %}, {{ unread_notification_count }} unread{% endif %}" title="Open notifications"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>{% if unread_notification_count %}<b>{{ unread_notification_count }}</b>{% endif %}</a>
-      <div class="admin-account"><span class="admin-avatar">{{ request.user.first_name|first|default:request.user.email|first|upper }}</span><span><strong>{{ request.user.first_name|default:'Administrator' }}</strong><small>Administrator</small></span></div>
-    </header>
-
-    <div class="admin-main" id="admin-main">
-      <header class="admin-page-heading" id="top">
-        <div><span class="admin-eyebrow">BOOKMYSERVICE ADMINISTRATION</span><h1>Welcome back, {{ request.user.first_name|default:'Admin' }}.</h1><p>Here’s a live overview of your service marketplace.</p></div>
-        <div class="admin-heading-actions"><span class="admin-today">▣ &nbsp;{% now "M j, Y" %}</span></div>
-      </header>
-
-      <section class="admin-metric-grid" aria-label="Platform summary">
-        <a class="admin-metric-card" href="{% url 'admin:accounts_user_changelist' %}"><span class="admin-metric-icon metric-purple">♙</span><span class="admin-metric-copy"><small>Total users</small><strong>{{ stats.total_users }}</strong><em>{{ stats.customers }} customers · {{ stats.providers }} providers</em></span><span class="admin-metric-arrow">›</span></a>
-        <a class="admin-metric-card" href="?user_type=customer#recent-users"><span class="admin-metric-icon metric-blue">C</span><span class="admin-metric-copy"><small>Customers</small><strong>{{ stats.customers }}</strong><em>Customer accounts</em></span><span class="admin-metric-arrow">›</span></a>
-        <a class="admin-metric-card" href="?user_type=provider#recent-users"><span class="admin-metric-icon metric-green">P</span><span class="admin-metric-copy"><small>Providers</small><strong>{{ stats.providers }}</strong><em>{{ stats.verified_providers }} verified</em></span><span class="admin-metric-arrow">›</span></a>
-        <a class="admin-metric-card" href="{% url 'admin:services_service_management' %}#services"><span class="admin-metric-icon metric-green">▣</span><span class="admin-metric-copy"><small>Total services</small><strong>{{ stats.total_services }}</strong><em>{{ stats.services }} active listings</em></span><span class="admin-metric-arrow">›</span></a>
-        <a class="admin-metric-card" href="#bookings"><span class="admin-metric-icon metric-amber">▦</span><span class="admin-metric-copy"><small>Total bookings</small><strong>{{ stats.total }}</strong><em>{{ stats.pending }} awaiting response</em></span><span class="admin-metric-arrow">›</span></a>
-        <a class="admin-metric-card" href="?booking_status=pending#bookings"><span class="admin-metric-icon metric-rose">◷</span><span class="admin-metric-copy"><small>Pending bookings</small><strong>{{ stats.pending }}</strong><em>Awaiting provider response</em></span><span class="admin-metric-arrow">›</span></a>
-        <a class="admin-metric-card" href="?booking_status=completed#bookings"><span class="admin-metric-icon metric-green">✓</span><span class="admin-metric-copy"><small>Completed bookings</small><strong>{{ stats.completed }}</strong><em>Successfully completed</em></span><span class="admin-metric-arrow">›</span></a>
-        <a class="admin-metric-card" href="?booking_status=cancelled#bookings"><span class="admin-metric-icon metric-rose">×</span><span class="admin-metric-copy"><small>Cancelled bookings</small><strong>{{ stats.cancelled }}</strong><em>Cancelled records</em></span><span class="admin-metric-arrow">›</span></a>
-        <a class="admin-metric-card" href="{% url 'admin:accounts_providerprofile_changelist' %}?approval_status__exact=approved"><span class="admin-metric-icon metric-blue">✓</span><span class="admin-metric-copy"><small>Verified providers</small><strong>{{ stats.verified_providers }}</strong><em>Approved by administration</em></span><span class="admin-metric-arrow">›</span></a>
-        <a class="admin-metric-card" href="#provider-approvals"><span class="admin-metric-icon metric-rose">◷</span><span class="admin-metric-copy"><small>Pending approvals</small><strong>{{ stats.pending_approvals }}</strong><em>Provider profiles to review</em></span><span class="admin-metric-arrow">›</span></a>
-      </section>
-
-      {% if query %}<section class="admin-panel admin-search-results" aria-live="polite"><div class="admin-panel-heading"><div><span class="admin-eyebrow">SEARCH RESULTS</span><h2>Matches for “{{ query }}”</h2></div></div><div class="admin-search-match-list">{% for service in service_matches %}<a href="{% url 'admin:services_service_change' service.pk %}"><span class="admin-match-icon">S</span><span><strong>{{ service.name }}</strong><small>{{ service.category.name }} · {{ service.provider.display_name }}</small></span><b>Service</b></a>{% empty %}<p class="admin-empty-inline">No matching services. Matching users and bookings appear in their tables below.</p>{% endfor %}</div></section>{% endif %}
-
-      <div class="admin-primary-grid">
-        <section class="admin-panel" id="bookings">
-          <div class="admin-panel-heading"><div><span class="admin-eyebrow">BOOKING MANAGEMENT</span><h2>Recent bookings</h2></div><a class="admin-text-link" href="{% url 'admin:bookings_booking_changelist' %}">View all <span aria-hidden="true">→</span></a></div>
-          <form class="admin-filter-row" method="get" action="{% url 'dashboard' %}#bookings"><label for="booking-status-filter">Status</label><select id="booking-status-filter" name="booking_status"><option value="all" {% if booking_status == 'all' %}selected{% endif %}>All bookings</option>{% for value,label in booking_statuses %}<option value="{{ value }}" {% if booking_status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><input type="hidden" name="q" value="{{ query }}"><input type="hidden" name="user_type" value="{{ user_type }}"><button type="submit">Filter</button></form>
-          <div class="admin-table-scroll"><table class="admin-data-table"><thead><tr><th>Reference</th><th>Customer</th><th>Service / provider</th><th>Date & time</th><th>Amount</th><th>Status</th><th>View</th></tr></thead><tbody>
-            {% for booking in booking_page %}<tr><td><span class="admin-reference">#{{ booking.reference|truncatechars:12 }}</span></td><td><strong>{{ booking.customer.get_full_name|default:booking.customer.email }}</strong><small>{{ booking.customer.email }}</small></td><td><strong>{{ booking.service.name }}</strong><small>{{ booking.service.provider.display_name }}</small></td><td>{{ booking.start_at|date:"M j, Y" }}<small>{{ booking.start_at|date:"g:i A" }}</small></td><td>₹{{ booking.price_at_booking|floatformat:2 }}</td><td><span class="admin-status status-{{ booking.status }}">{{ booking.get_status_display }}</span></td><td><a class="admin-view-button" href="{% url 'admin:bookings_booking_change' booking.pk %}">View</a></td></tr>
-            {% empty %}<tr><td colspan="7"><div class="admin-empty-state"><strong>No bookings match this view.</strong><span>Try another status or search term.</span></div></td></tr>{% endfor %}
-          </tbody></table></div>
-          {% if booking_page.paginator.num_pages > 1 %}<nav class="admin-pagination" aria-label="Booking pages"><span>{{ booking_page.start_index }}–{{ booking_page.end_index }} of {{ booking_page.paginator.count }}</span><div>{% if booking_page.has_previous %}<a href="?q={{ query|urlencode }}&booking_status={{ booking_status }}&user_type={{ user_type }}&booking_page={{ booking_page.previous_page_number }}#bookings" aria-label="Previous bookings">‹</a>{% endif %}<span>Page {{ booking_page.number }} of {{ booking_page.paginator.num_pages }}</span>{% if booking_page.has_next %}<a href="?q={{ query|urlencode }}&booking_status={{ booking_status }}&user_type={{ user_type }}&booking_page={{ booking_page.next_page_number }}#bookings" aria-label="Next bookings">›</a>{% endif %}</div></nav>{% endif %}
-        </section>
-
-        <section class="admin-panel" id="provider-approvals">
-          <div class="admin-panel-heading"><div><span class="admin-eyebrow">PROVIDER REVIEW</span><h2>Pending approvals <span class="admin-heading-count">{{ stats.pending_approvals }}</span></h2></div>{% if approval_size == '5' %}<a class="admin-text-link" href="?approval_size=25#provider-approvals">View all <span aria-hidden="true">→</span></a>{% else %}<a class="admin-text-link" href="{% url 'admin:accounts_providerprofile_changelist' %}?approval_status__exact=pending">Manage profiles <span aria-hidden="true">→</span></a>{% endif %}</div>
-          <p class="admin-panel-note">Approval is separate from account activity and service listing status.</p>
-          <div class="admin-table-scroll"><table class="admin-data-table approvals-table"><thead><tr><th>Provider</th><th>Services</th><th>Joined</th><th>Actions</th></tr></thead><tbody>
-            {% for provider in pending_page %}<tr><td><strong>{{ provider.display_name }}</strong><small>{{ provider.user.email }}</small><span class="admin-status status-pending">Pending review</span></td><td>{{ provider.services.count }}</td><td>{{ provider.user.date_joined|date:"M j, Y" }}</td><td><div class="admin-row-actions"><form method="post" action="{% url 'admin_provider_review' provider.pk 'approve' %}">{% csrf_token %}<button class="admin-approve-button" type="submit">Approve</button></form><form method="post" action="{% url 'admin_provider_review' provider.pk 'reject' %}" onsubmit="return confirm('Reject this provider review? The account and services will remain unchanged.');">{% csrf_token %}<button class="admin-reject-button" type="submit">Reject</button></form></div></td></tr>
-            {% empty %}<tr><td colspan="4"><div class="admin-empty-state"><strong>No approvals waiting.</strong><span>New provider reviews will appear here.</span></div></td></tr>{% endfor %}
-          </tbody></table></div>
-          {% if pending_page.paginator.num_pages > 1 %}<nav class="admin-pagination" aria-label="Approval pages"><span>{{ pending_page.start_index }}–{{ pending_page.end_index }} of {{ pending_page.paginator.count }}</span><div>{% if pending_page.has_previous %}<a href="?approval_page={{ pending_page.previous_page_number }}&approval_size={{ approval_size }}#provider-approvals" aria-label="Previous approvals">‹</a>{% endif %}<span>Page {{ pending_page.number }} of {{ pending_page.paginator.num_pages }}</span>{% if pending_page.has_next %}<a href="?approval_page={{ pending_page.next_page_number }}&approval_size={{ approval_size }}#provider-approvals" aria-label="Next approvals">›</a>{% endif %}</div></nav>{% endif %}
-        </section>
-      </div>
-
-      <div class="admin-analytics-grid" id="analytics">
-        <section class="admin-panel admin-distribution-panel"><div class="admin-panel-heading"><div><span class="admin-eyebrow">ACCOUNT OVERVIEW</span><h2>User distribution</h2></div><a class="admin-text-link" href="{% url 'admin:accounts_user_changelist' %}">Manage users →</a></div>{% if stats.total_users %}<div class="admin-donut-wrap"><div class="admin-donut" style="--customer-share:{{ user_share }}%"><div><strong>{{ stats.total_users }}</strong><span>Total users</span></div></div><div class="admin-legend"><div><i class="legend-customer"></i><span>Customers</span><strong>{{ stats.customers }}</strong></div><div><i class="legend-provider"></i><span>Service providers</span><strong>{{ stats.providers }}</strong></div></div></div>{% else %}<div class="admin-empty-state"><strong>No user data yet.</strong><span>Registered accounts will appear in this chart.</span></div>{% endif %}</section>
-        <section class="admin-panel admin-category-panel"><div class="admin-panel-heading"><div><span class="admin-eyebrow">MARKETPLACE</span><h2>Services by category</h2></div><a class="admin-text-link" href="{% url 'admin:services_service_management' %}#categories">Manage categories →</a></div><div class="admin-category-chart" role="img" aria-label="Active service listing counts by category">{% for category in stats.categories %}<div class="admin-category-bar"><strong>{{ category.service_count }}</strong><i style="height:{% if category.percent %}{{ category.percent }}{% else %}3{% endif %}%"></i><span>{{ category.name }}</span></div>{% empty %}<div class="admin-empty-state"><strong>No categories yet.</strong><span>Add categories to organize marketplace services.</span></div>{% endfor %}</div></section>
-      </div>
-
-      <section class="admin-panel admin-users-panel" id="recent-users"><div class="admin-panel-heading"><div><span class="admin-eyebrow">ACCOUNT MANAGEMENT</span><h2>Recent users</h2></div><a class="admin-text-link" href="{% url 'admin:accounts_user_changelist' %}">View all users →</a></div>
-        <form class="admin-filter-row" method="get" action="{% url 'dashboard' %}#recent-users"><label for="user-type-filter">Account type</label><select id="user-type-filter" name="user_type"><option value="all" {% if user_type == 'all' %}selected{% endif %}>All users</option><option value="customer" {% if user_type == 'customer' %}selected{% endif %}>Customers</option><option value="provider" {% if user_type == 'provider' %}selected{% endif %}>Providers</option></select><input type="hidden" name="q" value="{{ query }}"><input type="hidden" name="booking_status" value="{{ booking_status }}"><button type="submit">Apply</button></form>
-        <div class="admin-table-scroll"><table class="admin-data-table"><thead><tr><th>Name</th><th>Email</th><th>Account type</th><th>Joined</th><th>Account status</th><th>Manage</th></tr></thead><tbody>
-            {% for account in user_page %}<tr><td><span class="admin-user-cell"><i class="admin-user-avatar avatar-{{ account.role }}">{{ account.first_name|first|default:account.email|first|upper }}</i><strong>{{ account.get_full_name|default:account.email }}</strong></span></td><td>{{ account.email }}</td><td><span class="admin-role-badge role-{{ account.role }}">{{ account.get_role_display }}</span></td><td>{{ account.date_joined|date:"M j, Y" }}</td><td><span class="admin-status {% if account.is_active %}status-active{% else %}status-inactive{% endif %}">{{ account.is_active|yesno:"Active,Inactive" }}</span></td><td><div class="admin-row-actions"><a class="admin-view-button" href="{% url 'admin:accounts_user_change' account.pk %}">View</a>{% if can_manage_accounts %}{% if account.is_active %}<form method="post" action="{% url 'admin_account_status' account.pk 'deactivate' %}">{% csrf_token %}<button class="admin-reject-button" type="submit">Deactivate</button></form>{% else %}<form method="post" action="{% url 'admin_account_status' account.pk 'activate' %}">{% csrf_token %}<button class="admin-approve-button" type="submit">Activate</button></form>{% endif %}{% endif %}</div></td></tr>
-          {% empty %}<tr><td colspan="6"><div class="admin-empty-state"><strong>No users match this view.</strong><span>Try another account type or search term.</span></div></td></tr>{% endfor %}
-        </tbody></table></div>
-        {% if user_page.paginator.num_pages > 1 %}<nav class="admin-pagination" aria-label="User pages"><span>{{ user_page.start_index }}–{{ user_page.end_index }} of {{ user_page.paginator.count }}</span><div>{% if user_page.has_previous %}<a href="?q={{ query|urlencode }}&booking_status={{ booking_status }}&user_type={{ user_type }}&user_page={{ user_page.previous_page_number }}#recent-users" aria-label="Previous users">‹</a>{% endif %}<span>Page {{ user_page.number }} of {{ user_page.paginator.num_pages }}</span>{% if user_page.has_next %}<a href="?q={{ query|urlencode }}&booking_status={{ booking_status }}&user_type={{ user_type }}&user_page={{ user_page.next_page_number }}#recent-users" aria-label="Next users">›</a>{% endif %}</div></nav>{% endif %}
-      </section>
-      <footer class="admin-footer-note">BookMyService administration · Data shown from current platform records</footer>
-    </div>
-  </div>
+<div class="admin-app" id="admin-app"><header class="admin-topbar">      <button class="admin-menu-toggle" id="admin-menu-toggle" type="button" aria-controls="admin-sidebar" aria-expanded="true" aria-label="Toggle administrator menu">
+<svg viewBox="0 0 24 24" aria-hidden="true">
+<path d="M4 6h16M4 12h16M4 18h16"/>
+</svg>
+</button>      <a class="admin-topbar-brand" href="{% url 'dashboard' %}" aria-label="BookMyService administrator dashboard">
+<span class="admin-topbar-brand-mark">b</span>
+<span>bookmy<span>service</span>
+</span>
+</a>      <form class="admin-global-search" method="get" action="{% url 'dashboard' %}" role="search">        <label class="visually-hidden" for="admin-search">Search users, services and bookings</label>        <span aria-hidden="true">⌕</span>
+<input id="admin-search" type="search" name="q" value="{{ query }}" placeholder="Search users, services, bookings…">        <input type="hidden" name="booking_status" value="{{ booking_status }}">
+<input type="hidden" name="user_type" value="{{ user_type }}">              </form>      <span class="admin-location">
+<span aria-hidden="true">⌖</span>Kochi</span>      <a class="admin-notification" href="{% url 'notifications' %}" aria-label="Notifications{% if unread_notification_count %}, {{ unread_notification_count }} unread{% endif %}" title="Open notifications">
+<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>
+</svg>
+{% if unread_notification_count %}
+<b>{{ unread_notification_count }}</b>
+{% endif %}
+</a>      <details class="admin-account-menu">        <summary class="admin-account" aria-label="Administrator account menu">          <span class="admin-avatar">{{ request.user.first_name|first|default:request.user.email|first|upper }}</span>          <span class="admin-account-identity">
+<strong>{{ request.user.first_name|default:'Administrator' }}</strong>
+<small>Administrator</small>
+</span>          <span class="admin-account-chevron" aria-hidden="true">⌄</span>        </summary>        <div class="admin-account-panel">          <p class="admin-account-panel-name">{{ request.user.get_full_name|default:request.user.email }}</p>          <a href="{% url 'profile' %}">Edit profile</a>          <a href="{% url 'admin:password_change' %}">Change password</a>          <form method="post" action="{% url 'logout' %}">
+{% csrf_token %}
+<button type="submit">Log out</button>
+</form>        </div>      </details>    </header>  {% include "dashboard/admin_sidebar.html" %}  <div class="admin-workspace">        <div class="admin-main" id="admin-main">      <header class="admin-page-heading" id="top">        <div>
+<span class="admin-eyebrow">BOOKMYSERVICE ADMINISTRATION</span>
+<h1>Welcome back, {{ request.user.first_name|default:'Admin' }}.</h1>
+<p>Here’s a live overview of your service marketplace.</p>
+</div>        <div class="admin-heading-actions">
+<span class="admin-today">▣ &nbsp;{% now "M j, Y" %}
+</span>
+</div>      </header>      <section class="admin-metric-grid" aria-label="Platform summary">        <a class="admin-metric-card" href="{% url 'admin:accounts_user_changelist' %}">
+<span class="admin-metric-icon metric-purple">♙</span>
+<span class="admin-metric-copy">
+<small>Total users</small>
+<strong>{{ stats.total_users }}</strong>
+<em>{{ stats.customers }} customers · {{ stats.providers }} providers</em>
+</span>
+<span class="admin-metric-arrow">›</span>
+</a>        <a class="admin-metric-card" href="{% url 'admin:accounts_user_changelist' %}?role__exact=customer">
+<span class="admin-metric-icon metric-blue">C</span>
+<span class="admin-metric-copy">
+<small>Customers</small>
+<strong>{{ stats.customers }}</strong>
+<em>Customer accounts</em>
+</span>
+<span class="admin-metric-arrow">›</span>
+</a>        <a class="admin-metric-card" href="{% url 'admin:accounts_providerprofile_changelist' %}">
+<span class="admin-metric-icon metric-green">P</span>
+<span class="admin-metric-copy">
+<small>Providers</small>
+<strong>{{ stats.providers }}</strong>
+<em>{{ stats.verified_providers }} verified</em>
+</span>
+<span class="admin-metric-arrow">›</span>
+</a>        <a class="admin-metric-card" href="{% url 'admin:services_service_management' %}#services">
+<span class="admin-metric-icon metric-green">▣</span>
+<span class="admin-metric-copy">
+<small>Total services</small>
+<strong>{{ stats.total_services }}</strong>
+<em>{{ stats.services }} active listings</em>
+</span>
+<span class="admin-metric-arrow">›</span>
+</a>        <a class="admin-metric-card" href="#bookings">
+<span class="admin-metric-icon metric-amber">▦</span>
+<span class="admin-metric-copy">
+<small>Total bookings</small>
+<strong>{{ stats.total }}</strong>
+<em>{{ stats.pending }} awaiting response</em>
+</span>
+<span class="admin-metric-arrow">›</span>
+</a>      </section>      {% if query %}
+<section class="admin-panel admin-search-results" aria-live="polite">
+<div class="admin-panel-heading">
+<div>
+<span class="admin-eyebrow">SEARCH RESULTS</span>
+<h2>Matches for “{{ query }}”</h2>
+</div>
+</div>
+<div class="admin-search-match-list">
+{% for service in service_matches %}
+<a href="{% url 'admin:services_service_change' service.pk %}">
+<span class="admin-match-icon">S</span>
+<span>
+<strong>{{ service.name }}</strong>
+<small>{{ service.category.name }} · {{ service.provider.display_name }}</small>
+</span>
+<b>Service</b>
+</a>
+{% empty %}
+<p class="admin-empty-inline">No matching services. Matching users and bookings appear in their tables below.</p>
+{% endfor %}
+</div>
+</section>
+{% endif %}      <div class="admin-primary-grid">        <section class="admin-panel" id="bookings">          <div class="admin-panel-heading">
+<div>
+<span class="admin-eyebrow">BOOKING MANAGEMENT</span>
+<h2>Recent bookings</h2>
+</div>
+<a class="admin-text-link" href="{% url 'admin:bookings_booking_changelist' %}">View all <span aria-hidden="true">→</span>
+</a>
+</div>          <nav class="admin-booking-tabs" aria-label="Filter recent bookings">            <a class="{% if booking_status == 'all' %}is-active{% endif %}" href="?booking_status=all&q={{ query|urlencode }}#bookings">All bookings <b>{{ stats.total }}</b>
+</a>            <a class="{% if booking_status == 'pending' %}is-active{% endif %}" href="?booking_status=pending&q={{ query|urlencode }}#bookings">Pending <b>{{ stats.pending }}</b>
+</a>            <a class="{% if booking_status == 'confirmed' %}is-active{% endif %}" href="?booking_status=confirmed&q={{ query|urlencode }}#bookings">Confirmed <b>{{ stats.confirmed }}</b>
+</a>            <a class="{% if booking_status == 'in_progress' %}is-active{% endif %}" href="?booking_status=in_progress&q={{ query|urlencode }}#bookings">In progress <b>{{ stats.in_progress }}</b>
+</a>            <a class="{% if booking_status == 'completed' %}is-active{% endif %}" href="?booking_status=completed&q={{ query|urlencode }}#bookings">Completed <b>{{ stats.completed }}</b>
+</a>            <a class="{% if booking_status == 'cancelled' %}is-active{% endif %}" href="?booking_status=cancelled&q={{ query|urlencode }}#bookings">Cancelled <b>{{ stats.cancelled }}</b>
+</a>          </nav>          <div class="admin-table-scroll">
+<table class="admin-data-table">
+<thead>
+<tr>
+<th>Reference</th>
+<th>Customer</th>
+<th>Service / provider</th>
+<th>Date & time</th>
+<th>Amount</th>
+<th>Status</th>
+<th>View</th>
+</tr>
+</thead>
+<tbody>            {% for booking in booking_page %}
+<tr>
+<td>
+<span class="admin-reference">#{{ booking.reference|truncatechars:12 }}</span>
+</td>
+<td>
+<strong>{{ booking.customer.get_full_name|default:booking.customer.email }}</strong>
+<small>{{ booking.customer.email }}</small>
+</td>
+<td>
+<strong>{{ booking.service.name }}</strong>
+<small>{{ booking.service.provider.display_name }}</small>
+</td>
+<td>{{ booking.start_at|date:"M j, Y" }}<small>{{ booking.start_at|date:"g:i A" }}</small>
+</td>
+<td>₹{{ booking.price_at_booking|floatformat:2 }}</td>
+<td>
+<span class="admin-status status-{{ booking.status }}">{{ booking.get_status_display }}</span>
+</td>
+<td>
+<a class="admin-view-button" href="{% url 'admin:bookings_booking_change' booking.pk %}">View</a>
+</td>
+</tr>            {% empty %}
+<tr>
+<td colspan="7">
+<div class="admin-empty-state">
+<strong>No bookings match this view.</strong>
+<span>Try another status or search term.</span>
+</div>
+</td>
+</tr>
+{% endfor %}          </tbody>
+</table>
+</div>          {% if booking_page.paginator.num_pages > 1 %}
+<nav class="admin-pagination" aria-label="Booking pages">
+<span>{{ booking_page.start_index }}–{{ booking_page.end_index }} of {{ booking_page.paginator.count }}</span>
+<div>
+{% if booking_page.has_previous %}
+<a href="?q={{ query|urlencode }}&booking_status={{ booking_status }}&user_type={{ user_type }}&booking_page={{ booking_page.previous_page_number }}#bookings" aria-label="Previous bookings">‹</a>
+{% endif %}
+<span>Page {{ booking_page.number }} of {{ booking_page.paginator.num_pages }}</span>
+{% if booking_page.has_next %}
+<a href="?q={{ query|urlencode }}&booking_status={{ booking_status }}&user_type={{ user_type }}&booking_page={{ booking_page.next_page_number }}#bookings" aria-label="Next bookings">›</a>
+{% endif %}
+</div>
+</nav>
+{% endif %}        </section>        <section class="admin-panel" id="provider-approvals">          <div class="admin-panel-heading">
+<div>
+<span class="admin-eyebrow">PROVIDER REVIEW</span>
+<h2>Pending approvals <span class="admin-heading-count">{{ stats.pending_approvals }}</span>
+</h2>
+</div>
+{% if approval_size == '5' %}
+<a class="admin-text-link" href="{% url 'admin:accounts_providerprofile_approval_list' %}">View all <span aria-hidden="true">→</span>
+</a>
+{% else %}
+<a class="admin-text-link" href="{% url 'admin:accounts_providerprofile_changelist' %}?approval_status__exact=pending">Manage profiles <span aria-hidden="true">→</span>
+</a>
+{% endif %}
+</div>          <div class="admin-table-scroll">
+<table class="admin-data-table approvals-table">
+<thead>
+<tr>
+<th>Provider</th>
+<th>Email</th>
+<th>Services</th>
+<th>Joined</th>
+<th>Status</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody>            {% for provider in pending_page %}
+<tr>
+<td>
+<a class="admin-provider-name" href="{% url 'admin:accounts_providerprofile_change' provider.pk %}"><strong>{{ provider.display_name }}</strong></a>
+</td>
+<td>{{ provider.user.email }}</td>
+<td>{{ provider.services.count }}</td>
+<td>{{ provider.user.date_joined|date:"M j, Y" }}</td>
+<td>
+<span class="admin-status status-pending">Pending</span>
+</td>
+<td>
+<div class="admin-row-actions">
+<form method="post" action="{% url 'admin_provider_review' provider.pk 'approve' %}">
+{% csrf_token %}
+<button class="admin-approve-button" type="submit">Approve</button>
+</form>
+<form method="post" action="{% url 'admin_provider_review' provider.pk 'reject' %}" onsubmit="return confirm('Reject this provider review?');">
+{% csrf_token %}
+<button class="admin-reject-button" type="submit">Reject</button>
+</form>
+</div>
+</td>
+</tr>            {% empty %}
+<tr>
+<td colspan="6">
+<div class="admin-empty-state">
+<strong>No approvals waiting.</strong>
+<span>New provider reviews will appear here.</span>
+</div>
+</td>
+</tr>
+{% endfor %}          </tbody>
+</table>
+</div>          {% if pending_page.paginator.num_pages > 1 %}
+<nav class="admin-pagination" aria-label="Approval pages">
+<span>{{ pending_page.start_index }}–{{ pending_page.end_index }} of {{ pending_page.paginator.count }}</span>
+<div>
+{% if pending_page.has_previous %}
+<a href="?approval_page={{ pending_page.previous_page_number }}&approval_size={{ approval_size }}#provider-approvals" aria-label="Previous approvals">‹</a>
+{% endif %}
+<span>Page {{ pending_page.number }} of {{ pending_page.paginator.num_pages }}</span>
+{% if pending_page.has_next %}
+<a href="?approval_page={{ pending_page.next_page_number }}&approval_size={{ approval_size }}#provider-approvals" aria-label="Next approvals">›</a>
+{% endif %}
+</div>
+</nav>
+{% endif %}        </section>      </div>      <div class="admin-analytics-grid" id="analytics">        <section class="admin-panel admin-distribution-panel">
+<div class="admin-panel-heading">
+<div>
+<span class="admin-eyebrow">ACCOUNT OVERVIEW</span>
+<h2>User distribution</h2>
+</div>
+<a class="admin-text-link" href="{% url 'admin:accounts_user_changelist' %}">Manage users â†’</a>
+</div>
+{% if stats.total_users %}
+<div class="admin-donut-wrap">
+<div class="admin-donut" style="--customer-share:{{ user_share }}%">
+<div>
+<strong>{{ stats.total_users }}</strong>
+<span>Total users</span>
+</div>
+</div>
+<div class="admin-legend">
+<div>
+<i class="legend-customer">
+</i>
+<span>Customers</span>
+<strong>{{ stats.customers }}</strong>
+</div>
+<div>
+<i class="legend-provider">
+</i>
+<span>Service providers</span>
+<strong>{{ stats.providers }}</strong>
+</div>
+</div>
+</div>
+{% else %}
+<div class="admin-empty-state">
+<strong>No user data yet.</strong>
+<span>Registered accounts will appear in this chart.</span>
+</div>
+{% endif %}
+</section>        <section class="admin-panel admin-category-panel">
+<div class="admin-panel-heading">
+<div>
+<span class="admin-eyebrow">MARKETPLACE</span>
+<h2>Services by category</h2>
+</div>
+<a class="admin-text-link" href="{% url 'admin:services_service_management' %}#categories">Manage categories â†’</a>
+</div>
+<div class="admin-category-chart" role="img" aria-label="Active service listing counts by category">
+{% for category in stats.categories %}
+<div class="admin-category-bar">
+<strong>{{ category.service_count }}</strong>
+<i style="height:{% if category.percent %}{{ category.percent }}{% else %}3{% endif %}%">
+</i>
+<span>{{ category.name }}</span>
+</div>
+{% empty %}
+<div class="admin-empty-state">
+<strong>No categories yet.</strong>
+<span>Add categories to organize marketplace services.</span>
+</div>
+{% endfor %}
+</div>
+</section>        <section class="admin-panel admin-booking-status-panel">
+<div class="admin-panel-heading">
+<div>
+<span class="admin-eyebrow">BOOKING OVERVIEW</span>
+<h2>Booking status</h2>
+</div>
+</div>
+<div class="admin-status-overview">
+<div class="admin-booking-donut" role="img" aria-label="Booking statuses by count" style="--pending:{{ booking_status_overview.0.stop }}%;--confirmed:{{ booking_status_overview.1.stop }}%;--progress:{{ booking_status_overview.2.stop }}%;--awaiting:{{ booking_status_overview.3.stop }}%;--completed:{{ booking_status_overview.4.stop }}%;--cancelled:{{ booking_status_overview.5.stop }}%">
+<strong>{{ stats.total }}</strong>
+<small>Bookings</small>
+</div>
+<div class="admin-status-legend">
+{% for item in booking_status_overview %}
+<div>
+<i class="status-legend-{{ item.key }}">
+</i>
+<span>{{ item.label }}</span>
+<strong>{{ item.count }}</strong>
+</div>
+{% endfor %}
+</div>
+</div>
+</section>      </div>    </div>  </div>
 </div>
 {% endblock %}
-{% block extra_js %}<script>
-(() => {
-  const app = document.getElementById('admin-app');
-  const toggle = document.getElementById('admin-menu-toggle');
-  const backdrop = document.getElementById('admin-menu-backdrop');
-  if (!app || !toggle || !backdrop) return;
-  document.body.classList.add('admin-js');
-  const mobileMenu = window.matchMedia('(max-width: 900px)');
-  const setMenuState = open => {
-    app.classList.toggle('sidebar-open', open && mobileMenu.matches);
-    app.classList.toggle('sidebar-collapsed', !open && !mobileMenu.matches);
-    toggle.setAttribute('aria-expanded', String(open));
-    toggle.setAttribute('aria-label', open ? 'Close administrator menu' : 'Open administrator menu');
-  };
-  backdrop.addEventListener('click', () => setMenuState(false));
-  app.querySelectorAll('.admin-sidebar a').forEach(link => {
-    link.addEventListener('click', () => {
-      if (mobileMenu.matches) setMenuState(false);
-    });
-  });
-  toggle.addEventListener('click', () => {
-    const currentlyOpen = mobileMenu.matches
-      ? app.classList.contains('sidebar-open')
-      : !app.classList.contains('sidebar-collapsed');
-    setMenuState(!currentlyOpen);
-  });
-  mobileMenu.addEventListener('change', () => setMenuState(true));
-  setMenuState(!mobileMenu.matches);
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && (app.classList.contains('sidebar-open') || app.classList.contains('sidebar-collapsed'))) {
-      setMenuState(false);
-      toggle.focus();
-    }
-  });
-})();
-</script>{% endblock %}
+{% block extra_js %}
+<script>(() => {  const app = document.getElementById('admin-app');  const toggle = document.getElementById('admin-menu-toggle');  const backdrop = document.getElementById('admin-menu-backdrop');  if (!app || !toggle || !backdrop) return;  document.body.classList.add('admin-js');  const mobileMenu = window.matchMedia('(max-width: 900px)');  const setMenuState = open => {    app.classList.toggle('sidebar-open', open && mobileMenu.matches);    app.classList.toggle('sidebar-collapsed', !open && !mobileMenu.matches);    toggle.setAttribute('aria-expanded', String(open));    toggle.setAttribute('aria-label', open ? 'Close administrator menu' : 'Open administrator menu');  };  backdrop.addEventListener('click', () => setMenuState(false));  app.querySelectorAll('.admin-sidebar a').forEach(link => {    link.addEventListener('click', () => {      if (mobileMenu.matches) setMenuState(false);    });  });  toggle.addEventListener('click', () => {    const currentlyOpen = mobileMenu.matches      ? app.classList.contains('sidebar-open')      : !app.classList.contains('sidebar-collapsed');    setMenuState(!currentlyOpen);  });  mobileMenu.addEventListener('change', () => setMenuState(true));  setMenuState(!mobileMenu.matches);  document.addEventListener('keydown', event => {    if (event.key === 'Escape' && (app.classList.contains('sidebar-open') || app.classList.contains('sidebar-collapsed'))) {      setMenuState(false);      toggle.focus();    }  });})();</script>
+{% endblock %}

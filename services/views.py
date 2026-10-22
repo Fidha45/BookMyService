@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.db.models import Avg, Count, Max, Min, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import HttpResponseNotAllowed
@@ -17,6 +18,15 @@ from .forms import ServiceForm
 from .models import Category, Favourite, Service
 
 def service_list(request, explore=False):
+    # Providers landing on the site root should return to their workspace.
+    # The catalogue remains available through /explore/ and for customers.
+    if (
+        not explore
+        and request.user.is_authenticated
+        and request.user.role == User.Role.PROVIDER
+        and not request.GET
+    ):
+        return redirect("dashboard")
     qs = Service.objects.filter(is_active=True, provider__user__is_active=True).select_related("provider", "provider__user", "category").annotate(
         rating=Avg("bookings__review__rating"),
         review_count=Count("bookings__review", distinct=True),
@@ -54,19 +64,26 @@ def service_list(request, explore=False):
     if sort_by not in sort_options: sort_by = "popular"
     page = Paginator(qs.order_by(*sort_options[sort_by]), 12 if explore else 9).get_page(request.GET.get("page"))
     categories = Category.objects.annotate(active_count=Count("services", filter=Q(services__is_active=True, services__provider__user__is_active=True))).filter(active_count__gt=0).order_by("name")
-    illustrated_categories = {"home-cleaning", "plumbing", "electrical", "appliance-repair", "beauty-wellness", "painting", "moving-packing", "gardening"}
     category_artwork_files = {
-        "home-cleaning": "home-cleaning.webp",
-        "plumbing": "plumbing.webp",
-        "electrical": "electrical.webp",
-        "appliance-repair": "appliance-repair.webp",
-        "beauty-wellness": "beauty-wellness.png",
-        "painting": "painting.webp",
-        "moving-packing": "moving-packing.webp",
-        "gardening": "gardening.webp",
+        "home-cleaning": "images/categories/home-cleaning-standard.jpg",
+        "ac-service": "images/services/Ac repair.jpg",
+        "plumbing": "images/categories/plumbing.webp",
+        "browser-preview-home": "images/services/Plumbing service.png",
+        "home-services": "images/services/Plumbing service.png",
+        "electrical": "images/categories/electrical.webp",
+        "appliance-repair": "images/categories/appliance-repair.webp",
+        "beauty-wellness": "images/categories/beauty-wellness.png",
+        "painting": "images/categories/painting.webp",
+        "moving-packing": "images/categories/moving-packing.webp",
+        "gardening": "images/categories/gardening.webp",
+        "car-service": "images/services/Car service.png",
+        "laptop-computer-repair": "images/services/Laptop repair.png",
+        "photography": "images/services/Portrait photography.png",
+        "website-development": "images/services/Website development.png",
     }
+    illustrated_categories = set(category_artwork_files)
     category_artwork = {
-        slug: static(f"images/categories/{category_artwork_files[slug]}")
+        slug: static(category_artwork_files[slug])
         for slug in illustrated_categories
     }
     for category in categories:
@@ -79,6 +96,12 @@ def service_list(request, explore=False):
         service.category.artwork_url = category_artwork.get(service.category.slug)
     query_params = request.GET.copy()
     query_params.pop("page", None)
+    search_filter_keys = ("q", "category", "provider", "location", "min_price", "max_price", "rating", "weekday")
+    has_search_filters = any(
+        value.strip()
+        for key in search_filter_keys
+        for value in request.GET.getlist(key)
+    )
     layout_queries = {}
     for view_mode in ("grid", "list"):
         layout_params = query_params.copy()
@@ -94,7 +117,9 @@ def service_list(request, explore=False):
     }
     context = {
         "page": page, "categories": categories, "providers": providers, "weekdays": weekdays,
+        "active_nav": "browse" if explore else "home",
         "filters": request.GET, "selected_categories": selected_categories,
+        "has_search_filters": has_search_filters,
         "featured": featured, "latest_reviews": latest_reviews,
         "stats": stats, "query_string": query_params.urlencode(),
         "sort_by": sort_by, "layout": request.GET.get("view") if request.GET.get("view") in {"grid", "list"} else "grid",
@@ -104,6 +129,10 @@ def service_list(request, explore=False):
     }
     if request.user.is_authenticated and request.user.role == User.Role.CUSTOMER:
         context["favourited_service_ids"] = set(Favourite.objects.filter(customer=request.user, service__isnull=False).values_list("service_id", flat=True))
+        context["customer_location"] = (
+            request.user.bookings.exclude(service__location="").values_list("service__location", flat=True).first()
+            or context["locations"].first()
+        )
     return render(request, "services/explore.html" if explore else "services/list.html", context)
 
 
@@ -169,6 +198,7 @@ def service_detail(request, pk):
     # and provider-block checks used by the booking workflow.
     from bookings.logic import available_slots
     today = timezone.localdate()
+    has_provider_availability = availability.exists()
     month_value = request.GET.get("month", "")
     try:
         year, month = (int(part) for part in month_value.split("-", 1))
@@ -214,8 +244,8 @@ def service_detail(request, pk):
         item.card_image_url = static(f"images/services/{item_artwork}") if item_artwork else (item.image.url if item.image else None)
     is_favourite = request.user.is_authenticated and Favourite.objects.filter(customer=request.user, service=service).exists()
     provider_is_favourite = request.user.is_authenticated and Favourite.objects.filter(customer=request.user, provider=service.provider).exists()
-    return render(request, "services/detail.html", {"service": service, "reviews": reviews, "average_rating": average_rating, "rating_distribution": rating_distribution, "availability": availability, "provider_services": provider_services, "provider_service_count": provider_service_count, "provider_average_rating": provider_average_rating, "provider_review_count": provider_review_count, "related_services": related_services, "is_favourite": is_favourite, "provider_is_favourite": provider_is_favourite,
-        "gallery_images": gallery_images, "calendar_month": calendar_month, "previous_month": previous_month, "next_month": next_month, "calendar_weeks": calendar_weeks, "selected_day": selected_day, "selected_slots": selected_slots, "selected_start": selected_start})
+    return render(request, "services/detail.html", {"active_nav": "browse", "service": service, "reviews": reviews, "average_rating": average_rating, "rating_distribution": rating_distribution, "availability": availability, "provider_services": provider_services, "provider_service_count": provider_service_count, "provider_average_rating": provider_average_rating, "provider_review_count": provider_review_count, "related_services": related_services, "is_favourite": is_favourite, "provider_is_favourite": provider_is_favourite,
+        "gallery_images": gallery_images, "calendar_month": calendar_month, "previous_month": previous_month, "next_month": next_month, "calendar_weeks": calendar_weeks, "selected_day": selected_day, "selected_slots": selected_slots, "selected_start": selected_start, "has_provider_availability": has_provider_availability, "is_service_owner": request.user.is_authenticated and request.user.pk == service.provider.user_id})
 
 
 @login_required
@@ -252,7 +282,7 @@ def favourite_toggle(request, kind, pk):
 def favourites(request):
     if request.user.role != User.Role.CUSTOMER: return forbidden_response(request)
     rows = Favourite.objects.filter(customer=request.user).select_related("service__provider__user", "service__category", "provider__user")
-    return render(request, "services/favourites.html", {"favourites": rows})
+    return render(request, "services/favourites.html", {"active_nav": "favourites", "favourites": rows})
 
 
 def match_services(request):
@@ -371,7 +401,13 @@ def dashboard(request):
         ).select_related("user").order_by("user__date_joined", "pk")
         pending_approval_count = pending_providers.count()
 
-        booking_page = Paginator(booking_rows, 8).get_page(request.GET.get("booking_page", 1))
+        from bookings.models import ProblemReport
+        open_problem_reports = ProblemReport.objects.filter(status=ProblemReport.Status.OPEN).select_related(
+            "booking", "booking__service", "booking__service__provider", "customer"
+        ).order_by("-reported_at", "-pk")
+        open_reports_count = open_problem_reports.count()
+
+        booking_page = Paginator(booking_rows, 5).get_page(request.GET.get("booking_page", 1))
         user_page = Paginator(visible_users, 8).get_page(request.GET.get("user_page", 1))
         pending_page = Paginator(pending_providers, int(approval_size)).get_page(request.GET.get("approval_page", 1))
 
@@ -394,14 +430,34 @@ def dashboard(request):
             "verified_providers": active_providers.filter(approval_status=ProviderProfile.ApprovalStatus.APPROVED).count(),
             "unverified_providers": active_providers.exclude(approval_status=ProviderProfile.ApprovalStatus.APPROVED).count(),
             "pending_approvals": pending_approval_count,
+            "open_reports": open_reports_count,
             "services": Service.objects.filter(is_active=True).count(),
             "total_services": Service.objects.count(),
             "total": Booking.objects.count(),
             "pending": Booking.objects.filter(status=Booking.Status.PENDING).count(),
+            "confirmed": Booking.objects.filter(status=Booking.Status.CONFIRMED).count(),
+            "in_progress": Booking.objects.filter(status=Booking.Status.IN_PROGRESS).count(),
             "completed": Booking.objects.filter(status=Booking.Status.COMPLETED).count(),
             "cancelled": Booking.objects.filter(status=Booking.Status.CANCELLED).count(),
             "categories": categories,
         }
+        booking_status_overview = [
+            {"label": label, "key": key, "count": Booking.objects.filter(status=status).count()}
+            for key, label, status in (
+                ("pending", "Pending", Booking.Status.PENDING),
+                ("confirmed", "Confirmed", Booking.Status.CONFIRMED),
+                ("progress", "In progress", Booking.Status.IN_PROGRESS),
+                ("awaiting", "Awaiting confirmation", Booking.Status.AWAITING_CUSTOMER_CONFIRMATION),
+                ("completed", "Completed", Booking.Status.COMPLETED),
+                ("cancelled", "Cancelled", Booking.Status.CANCELLED),
+                ("rejected", "Rejected", Booking.Status.REJECTED),
+            )
+        ]
+        status_running_total = 0
+        for row in booking_status_overview:
+            row["percent"] = round(row["count"] * 100 / data["total"]) if data["total"] else 0
+            status_running_total += row["count"]
+            row["stop"] = round(status_running_total * 100 / data["total"]) if data["total"] else 0
         return render(request, "dashboard/admin.html", {
             "stats": data,
             "query": query,
@@ -414,8 +470,11 @@ def dashboard(request):
             "pending_page": pending_page,
         "service_matches": service_matches[:5] if query else [],
         "can_manage_accounts": request.user.has_perm("accounts.change_user"),
+        "open_problem_reports": open_problem_reports[:8],
+        "open_reports_count": open_reports_count,
             "user_share": round(customers_count * 100 / user_total) if user_total else 0,
             "unread_notification_count": unread_notification_count,
+            "booking_status_overview": booking_status_overview,
         })
     if request.user.role == User.Role.PROVIDER:
         from bookings.models import Notification
@@ -423,18 +482,32 @@ def dashboard(request):
 
         booking_records = Booking.objects.filter(service__provider__user=request.user).select_related("service", "customer").order_by("-created_at", "-pk")
         services = Service.objects.filter(provider__user=request.user).select_related("category").order_by("-created_at", "-pk")
-        completed_bookings = booking_records.filter(status=Booking.Status.COMPLETED, completed_at__isnull=False)
-        today = timezone.localdate()
-        month_start = timezone.make_aware(datetime.combine(today.replace(day=1), datetime.min.time()))
-        month_end_date = today.replace(day=28) + timedelta(days=4)
-        month_end = timezone.make_aware(datetime.combine(month_end_date.replace(day=1), datetime.min.time()))
+        completed_bookings = booking_records.filter(status=Booking.Status.COMPLETED)
         query = request.GET.get("q", "").strip()[:100]
         booking_status = request.GET.get("booking_status", "all")
-        if booking_status not in {"all", *Booking.Status.values}:
+        if booking_status not in {"all", "cancelled_rejected", *Booking.Status.values}:
             booking_status = "all"
+        provider_page = request.GET.get("provider_page", "dashboard")
+        if provider_page not in {"dashboard", "bookings", "services", "reviews"}:
+            provider_page = "dashboard"
         visible_bookings = booking_records
         visible_services = services
-        if booking_status != "all":
+        service_categories = Category.objects.filter(services__provider__user=request.user).distinct().order_by("name")
+        service_category = request.GET.get("category", "")
+        if not service_category.isdigit() or not service_categories.filter(pk=service_category).exists():
+            service_category = ""
+        service_status = request.GET.get("service_status", "all")
+        if service_status not in {"all", "active", "inactive"}:
+            service_status = "all"
+        if service_category:
+            visible_services = visible_services.filter(category_id=service_category)
+        if service_status == "active":
+            visible_services = visible_services.filter(is_active=True)
+        elif service_status == "inactive":
+            visible_services = visible_services.filter(is_active=False)
+        if booking_status == "cancelled_rejected":
+            visible_bookings = visible_bookings.filter(status__in=(Booking.Status.CANCELLED, Booking.Status.REJECTED))
+        elif booking_status != "all":
             visible_bookings = visible_bookings.filter(status=booking_status)
         if query:
             visible_bookings = visible_bookings.filter(
@@ -445,51 +518,82 @@ def dashboard(request):
             visible_services = visible_services.filter(
                 Q(name__icontains=query) | Q(category__name__icontains=query) | Q(location__icontains=query)
             )
-        # Keep recent requests and history as separate dashboard panels while
-        # keeping all counts and earnings based on the provider's full records.
-        recent_requests = booking_records.filter(status=Booking.Status.PENDING)[:5]
-        booking_history = booking_records.exclude(status=Booking.Status.PENDING)[:5]
+        # Paginate the full provider-owned request list; the dashboard itself
+        # only shows a small recent-bookings snapshot.
+        booking_page = Paginator(visible_bookings, 10).get_page(request.GET.get("page", 1))
+        recent_bookings = booking_records.order_by("-start_at", "-pk")[:4]
         availability_rows = list(request.user.provider_profile.availability.order_by("weekday"))
         availability_by_day = {row.weekday: row for row in availability_rows}
         weekdays = [{"name": name, "row": availability_by_day.get(index)} for index, name in enumerate(("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))]
-        months = []
-        cursor = (today.replace(day=1) - timedelta(days=150)).replace(day=1)
-        for _ in range(6):
-            next_month = (cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
-            start = timezone.make_aware(datetime.combine(cursor, datetime.min.time()))
-            end = timezone.make_aware(datetime.combine(next_month, datetime.min.time()))
-            amount = completed_bookings.filter(completed_at__gte=start, completed_at__lt=end).aggregate(total=Sum("price_at_booking"))["total"] or 0
-            months.append({"label": cursor.strftime("%b"), "amount": amount})
-            cursor = next_month
-        peak = max((row["amount"] for row in months), default=0)
-        for row in months:
-            row["percent"] = int(row["amount"] * 100 / peak) if peak else 0
         notifications = Notification.objects.filter(recipient=request.user, read_at__isnull=True)
+        provider_reviews = Review.objects.filter(booking__service__provider__user=request.user)
         return render(request, "dashboard/provider.html", {
-            "bookings": visible_bookings[:10], "services": visible_services,
-            "recent_requests": recent_requests, "booking_history": booking_history,
+            "bookings": booking_page.object_list, "booking_page": booking_page,
+            "recent_bookings": recent_bookings, "services": visible_services,
+            "service_categories": service_categories, "service_category": service_category,
+            "service_status": service_status,
             "availability_by_day": availability_by_day,
             "weekdays": weekdays,
-            "reviews": Review.objects.filter(booking__service__provider__user=request.user).select_related("customer", "booking__service").order_by("-created_at")[:4],
-            "query": query, "booking_status": booking_status,
+            "reviews": provider_reviews.select_related("customer", "booking__service").order_by("-created_at")[:4],
+            "average_rating": provider_reviews.aggregate(value=Avg("rating"))["value"],
+            "review_count": provider_reviews.count(),
+            "query": query, "booking_status": booking_status, "provider_page": provider_page,
             "notifications": notifications[:5], "unread_notification_count": notifications.count(),
-            "earnings_months": months,
-            "estimated_earnings": completed_bookings.aggregate(total=Sum("price_at_booking"))["total"] or 0,
-            "estimated_month_earnings": completed_bookings.filter(completed_at__gte=month_start, completed_at__lt=month_end).aggregate(total=Sum("price_at_booking"))["total"] or 0,
             "pending_count": booking_records.filter(status=Booking.Status.PENDING).count(),
             "confirmed_count": booking_records.filter(status=Booking.Status.CONFIRMED).count(),
             "completed_count": completed_bookings.count(),
-            "active_service_count": services.filter(is_active=True).count(),
             "in_progress_count": booking_records.filter(status=Booking.Status.IN_PROGRESS).count(),
+            "awaiting_count": booking_records.filter(status=Booking.Status.AWAITING_CUSTOMER_CONFIRMATION).count(),
             "cancelled_count": booking_records.filter(status=Booking.Status.CANCELLED).count(),
+            "rejected_count": booking_records.filter(status=Booking.Status.REJECTED).count(),
+            "status_counts": {
+                "all": booking_records.count(),
+                "pending": booking_records.filter(status=Booking.Status.PENDING).count(),
+                "confirmed": booking_records.filter(status=Booking.Status.CONFIRMED).count(),
+                "in_progress": booking_records.filter(status=Booking.Status.IN_PROGRESS).count(),
+                "awaiting_customer_confirmation": booking_records.filter(status=Booking.Status.AWAITING_CUSTOMER_CONFIRMATION).count(),
+                "completed": completed_bookings.count(),
+                "cancelled_rejected": booking_records.filter(status__in=(Booking.Status.CANCELLED, Booking.Status.REJECTED)).count(),
+            },
         })
     bookings = Booking.objects.filter(customer=request.user).select_related("service", "service__provider", "service__category", "service__provider__user").order_by("-start_at")
-    upcoming = bookings.filter(start_at__gte=timezone.now(), status__in=(Booking.Status.PENDING, Booking.Status.CONFIRMED))
+    upcoming = bookings.filter(start_at__gte=timezone.now(), status__in=(Booking.Status.PENDING, Booking.Status.CONFIRMED)).order_by("start_at")
     history = bookings.exclude(status__in=(Booking.Status.PENDING, Booking.Status.CONFIRMED))
-    recent_bookings = bookings.exclude(status__in=(Booking.Status.PENDING, Booking.Status.CONFIRMED))[:3]
+    recent_bookings = bookings.exclude(status__in=(Booking.Status.PENDING, Booking.Status.CONFIRMED))[:4]
+    customer_location = bookings.exclude(service__location="").values_list("service__location", flat=True).first()
+    customer_categories = Category.objects.annotate(
+        active_count=Count("services", filter=Q(
+            services__is_active=True,
+            services__provider__user__is_active=True,
+        ))
+    ).filter(active_count__gt=0).order_by("-active_count", "name")
+    recommendation_query = Service.objects.filter(
+        is_active=True, provider__user__is_active=True
+    ).select_related("category", "provider").annotate(
+        rating=Avg("bookings__review__rating"),
+        booking_count=Count("bookings", distinct=True),
+    ).order_by("-booking_count", "-rating", "name", "pk")
+    preferred_category_ids = bookings.values_list("service__category_id", flat=True).distinct()
+    recommended_services = list(recommendation_query.filter(category_id__in=preferred_category_ids)[:6])
+    recommended_ids = {service.pk for service in recommended_services}
+    recommended_services.extend(
+        service for service in recommendation_query.exclude(pk__in=recommended_ids)[:6]
+        if service.pk not in recommended_ids
+    )
+    popular_services = recommended_services[:6]
+    popular_favourite_ids = set(Favourite.objects.filter(
+        customer=request.user,
+        service_id__in=[service.pk for service in popular_services],
+    ).values_list("service_id", flat=True))
+    for service in popular_services:
+        service.is_favourite = service.pk in popular_favourite_ids
+    service_locations = Service.objects.filter(
+        is_active=True, provider__user__is_active=True
+    ).exclude(location="").order_by("location").values_list("location", flat=True).distinct()
     page_view = request.GET.get("view", "dashboard")
     booking_view = page_view == "bookings"
     review_view = page_view == "reviews"
+    active_nav = "dashboard" if not booking_view and not review_view else ""
     selected_status = request.GET.get("status", "all")
     if selected_status == "upcoming":
         visible_bookings = upcoming
@@ -506,12 +610,17 @@ def dashboard(request):
         "bookings": bookings, "upcoming_bookings": upcoming, "history_bookings": history,
         "recent_bookings": recent_bookings, "upcoming_count": upcoming.count(),
         "visible_bookings": visible_bookings, "booking_view": booking_view, "review_view": review_view, "selected_status": selected_status,
+        "active_nav": active_nav,
         "customer_reviews": Review.objects.filter(customer=request.user).select_related("booking__service", "booking__service__provider").order_by("-created_at"),
-        "customer_location": bookings.exclude(service__location="").values_list("service__location", flat=True).first(),
+        "customer_location": customer_location,
+        "customer_categories": customer_categories,
+        "popular_services": popular_services,
+        "service_locations": service_locations,
         "favourite_count": Favourite.objects.filter(customer=request.user).count(),
         "pending_count": bookings.filter(status=Booking.Status.PENDING).count(),
         "confirmed_count": bookings.filter(status=Booking.Status.CONFIRMED).count(),
         "completed_count": bookings.filter(status=Booking.Status.COMPLETED).count(),
+        "cancelled_count": bookings.filter(status=Booking.Status.CANCELLED).count(),
         "notifications": Notification.objects.filter(recipient=request.user, read_at__isnull=True)[:5],
     })
 
@@ -562,6 +671,9 @@ def admin_provider_review(request, pk, action):
             pk=pk,
             user__role=User.Role.PROVIDER,
         )
+        if provider.approval_status != ProviderProfile.ApprovalStatus.PENDING:
+            messages.error(request, "This provider review has already been decided.")
+            return redirect(f"{reverse('dashboard')}#provider-approvals")
         provider.approval_status = status_by_action[action]
         provider.is_verified = action == "approve"
         provider.approval_reviewed_at = timezone.now()
@@ -621,4 +733,71 @@ def service_manage(request, pk=None):
         service = form.save(commit=False)
         if not obj: service.provider = request.user.provider_profile
         service.save(); messages.success(request, "Service saved."); return redirect("dashboard")
-    return render(request, "form_page.html", {"form": form, "title": "Edit service" if obj else "Add a service"})
+    return render(request, "services/provider_form.html", {
+        "form": form,
+        "title": "Edit service" if obj else "Add a service",
+        "active_provider_nav": "services",
+    })
+
+
+@login_required
+def provider_service_action(request, pk, action):
+    if request.method != "POST" or request.user.role != User.Role.PROVIDER or not request.user.is_active:
+        return forbidden_response(request)
+    service = get_object_or_404(Service, pk=pk, provider__user=request.user)
+    if action == "toggle":
+        service.is_active = not service.is_active
+        service.save(update_fields=["is_active"])
+        messages.success(request, f"{service.name} is now {'active' if service.is_active else 'inactive'}.")
+    elif action == "delete":
+        try:
+            service.delete()
+            messages.success(request, "Service deleted.")
+        except ProtectedError:
+            messages.error(request, "This service has bookings and cannot be deleted. Deactivate it instead.")
+    else:
+        return forbidden_response(request)
+    from django.utils.http import urlencode
+    params = {key: value for key, value in {
+        "q": request.POST.get("q", "").strip()[:100],
+        "category": request.POST.get("category", ""),
+        "service_status": request.POST.get("service_status", "all"),
+    }.items() if value}
+    destination = reverse("dashboard") + "?provider_page=services"
+    if params:
+        destination += "&" + urlencode(params)
+    return redirect(destination)
+
+
+@login_required
+def admin_resolve_problem(request, pk):
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
+    if not request.user.is_staff:
+        return forbidden_response(request)
+    resolution = request.POST.get("resolution", "").strip()
+    if not resolution:
+        messages.error(request, "Enter the administrator's resolution before closing this report.")
+        return redirect(f"{reverse('dashboard')}#reported-issues")
+    with transaction.atomic():
+        from bookings.models import ProblemReport
+        report = get_object_or_404(
+            ProblemReport.objects.select_for_update().select_related("booking", "customer"),
+            pk=pk,
+        )
+        if report.status == ProblemReport.Status.RESOLVED:
+            messages.info(request, "This problem report is already resolved.")
+            return redirect(f"{reverse('dashboard')}#reported-issues")
+        report.status = ProblemReport.Status.RESOLVED
+        report.resolution = resolution
+        report.resolved_at = timezone.now()
+        report.save(update_fields=["status", "resolution", "resolved_at"])
+        from bookings.notifications import notify_booking
+        notify_booking(
+            report.booking,
+            f"problem-resolved-{report.pk}",
+            f"The administrator resolved the reported problem: {resolution[:100]}",
+            report.customer,
+        )
+        messages.success(request, f"Problem report for booking #{str(report.booking.reference)[:12]} was resolved.")
+    return redirect(f"{reverse('dashboard')}#reported-issues")

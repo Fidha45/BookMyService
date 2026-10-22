@@ -63,3 +63,12 @@ body.app-services.model-category.change-list .visually-hidden { position:absolut
   body.app-services.model-category.change-list .category-toolbar form { box-sizing:border-box; align-items:stretch; max-width:100%; }
   body.app-services.model-category.change-list #category-search { box-sizing:border-box; flex:1 1 100%; width:100%; max-width:100%; }
 }
+
+@media (max-width:600px) {
+  body.app-services.model-category.change-list #content,
+  body.app-services.model-category.change-list #content-start { box-sizing:border-box; width:100%; max-width:100%; }
+  body.app-services.model-category.change-list .category-page-heading p,
+  body.app-services.model-category.change-list .category-metrics,
+  body.app-services.model-category.change-list #changelist { box-sizing:border-box; width:100%; max-width:100%; }
+  body.app-services.model-category.change-list .category-page-heading p { overflow-wrap:anywhere; }
+}

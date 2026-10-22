@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load static service_images %}
+{% block title %}Home · BookMyService{% endblock %}
+{% block content %}
+<div class="customer-portal container customer-home-portal">
+  {% include 'dashboard/customer_sidebar.html' with active_nav='home' %}
+  <main class="customer-main customer-home-main">
+    <section class="customer-home-hero" aria-labelledby="customer-home-title">
+      <div class="customer-home-hero-copy">
+        <span class="customer-eyebrow">TRUSTED. LOCAL. CONVENIENT.</span>
+        <h1 id="customer-home-title">Find the right professional for your <em>everyday needs.</em></h1>
+        <p>Book trusted local professionals for your home, office and personal services, at a time that works for you.</p>
+        <form class="customer-home-search" method="get" action="{% url 'service_explore' %}#results">
+          <label><span aria-hidden="true">&#8981;</span><span class="visually-hidden">Search services</span><input type="search" name="q" placeholder="Search services (e.g. AC service, home cleaning)" autocomplete="off"></label>
+          <label class="customer-home-location"><span aria-hidden="true">&#9906;</span><span class="visually-hidden">Location</span><select name="location"><option value="{{ customer_location }}">{{ customer_location|default:'Your location' }}</option><option value="">All locations</option>{% for location in locations %}{% if location != customer_location %}<option value="{{ location }}">{{ location }}</option>{% endif %}{% endfor %}</select></label>
+          <button type="submit">Search services <span aria-hidden="true">&#8594;</span></button>
+        </form>
+      </div>
+      <div class="customer-home-hero-art">
+        <img src="{% static 'images/categories/home-cleaning-standard.jpg' %}" alt="A local home professional cleaning a bright living room" fetchpriority="high">
+        <span class="customer-home-trust-badge"><b aria-hidden="true">&#10003;</b><span><strong>Verified Professionals</strong><small>{{ stats.verified_providers }} trusted local providers</small></span></span>
+        <span class="customer-home-proof"><strong>{{ stats.providers }}</strong><small>local professionals</small></span>
+      </div>
+    </section>
+    <nav class="customer-category-shortcuts" aria-label="Service categories">
+      {% for category in categories|slice:':9' %}<a class="hero-category" href="{% url 'service_explore' %}?category={{ category.slug|urlencode }}#results"><span class="hero-category-icon" aria-hidden="true">{% if category.slug == 'ac-service' %}&#10052;{% elif category.slug == 'appliance-repair' %}&#9881;{% elif category.slug == 'car-service' %}&#9641;{% elif category.slug == 'electrical' %}&#9889;{% elif category.slug == 'home-cleaning' %}&#8962;{% elif category.slug == 'laptop-computer-repair' %}&#9004;{% elif category.slug == 'photography' %}&#9737;{% elif category.slug == 'plumbing' %}&#128295;{% elif category.slug == 'website-development' %}&#127760;{% else %}{{ category.name|first|upper }}{% endif %}</span><span>{{ category.name }}</span></a>{% empty %}<a class="hero-category" href="{% url 'service_explore' %}"><span class="hero-category-icon">+</span><span>Explore</span></a>{% endfor %}
+      <a class="hero-category" href="{% url 'service_explore' %}"><span class="hero-category-icon hero-category-more">&#8230;</span><span>More</span></a>
+    </nav>
+    <section class="customer-section customer-popular-section" aria-labelledby="customer-popular-title">
+      <div class="customer-section-heading"><div><h2 id="customer-popular-title">Popular services</h2><p>Most booked services near you</p></div><a href="{% url 'service_explore' %}">View all <span aria-hidden="true">&#8594;</span></a></div>
+      <div class="customer-recommendations">{% for service in featured %}<article class="customer-recommendation-card">
+        <a class="customer-recommendation-image" href="{% url 'service_detail' service.pk %}" aria-label="View {{ service.name }}">{% if service.image %}<img src="{{ service.image.url }}" alt="{{ service.name }}" loading="lazy" decoding="async">{% elif service|catalog_service_image %}<img src="{{ service|catalog_service_image }}" alt="{{ service.name }}" loading="lazy" decoding="async">{% elif service.category.artwork_url %}<img src="{{ service.category.artwork_url }}" alt="{{ service.category.name }}" loading="lazy" decoding="async">{% else %}<span>{{ service.category.name|first|upper }}</span>{% endif %}<span class="customer-popular-badge">Popular</span></a>
+        <form class="customer-card-favourite" method="post" action="{% url 'favourite_toggle' 'service' service.pk %}">{% csrf_token %}<input type="hidden" name="next" value="/"><button type="submit" aria-label="{% if service.pk in favourited_service_ids %}Remove {{ service.name }} from favourites{% else %}Add {{ service.name }} to favourites{% endif %}" aria-pressed="{% if service.pk in favourited_service_ids %}true{% else %}false{% endif %}">{% if service.pk in favourited_service_ids %}&#9829;{% else %}&#9825;{% endif %}</button></form>
+        <div class="customer-recommendation-body"><strong>{{ service.name }}</strong><div class="customer-service-card-facts"><b>&#8377;{{ service.price }}</b><small>&#9719; {{ service.duration_minutes }} min</small></div><a href="{% url 'service_detail' service.pk %}">View service <span aria-hidden="true">&#8594;</span></a></div>
+      </article>{% empty %}<div class="customer-empty-inline"><span>Services from local professionals will appear here.</span><a href="{% url 'service_explore' %}">Explore services &#8594;</a></div>{% endfor %}</div>
+    </section>
+  </main>
+</div>
+{% endblock %}

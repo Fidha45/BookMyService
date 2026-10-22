@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Reschedule appointment · BookMyService{% endblock %}
+{% block content %}
+<section class="booking-reschedule-page" aria-labelledby="reschedule-title">
+  <a class="booking-reschedule-backlink" href="{% url 'dashboard' %}?view=bookings">&larr; Back to My Bookings</a>
+  <header class="booking-reschedule-heading">
+    <span class="customer-eyebrow">UPDATE APPOINTMENT</span>
+    <h1 id="reschedule-title">Reschedule your service</h1>
+    <p>Choose a future date and an available time that works for you.</p>
+  </header>
+
+  <div class="booking-reschedule-layout">
+    <section class="booking-reschedule-card" aria-labelledby="booking-details-title">
+      <div class="booking-reschedule-card-heading"><span aria-hidden="true">&#128197;</span><div><h2 id="booking-details-title">Booking details</h2><p>Booking #{{ booking.pk }} · {{ booking.get_status_display }}</p></div></div>
+      <dl class="booking-reschedule-details">
+        <div><dt>Service</dt><dd>{{ booking.service.name }} <small>{{ booking.service.category.name }}</small></dd></div>
+        <div><dt>Provider</dt><dd>{{ booking.service.provider.display_name }}</dd></div>
+        <div><dt>Current date</dt><dd>{{ booking.start_at|date:'l, F j, Y' }}</dd></div>
+        <div><dt>Current time</dt><dd>{{ booking.start_at|date:'g:i A' }} – {{ booking.end_at|date:'g:i A' }}</dd></div>
+        <div><dt>Location</dt><dd>{{ booking.service.location }}</dd></div>
+      </dl>
+    </section>
+
+    {% if confirmation %}
+    <section class="booking-reschedule-card booking-reschedule-confirm" aria-labelledby="confirm-reschedule-title">
+      <span class="customer-eyebrow">CONFIRM YOUR NEW TIME</span>
+      <h2 id="confirm-reschedule-title">Review the change</h2>
+      <p class="booking-reschedule-confirm-service">{{ booking.service.name }} with {{ booking.service.provider.display_name }}</p>
+      <div class="booking-reschedule-comparison">
+        <div><span>Previous appointment</span><strong>{{ booking.start_at|date:'D, M j, Y' }}</strong><small>{{ booking.start_at|date:'g:i A' }} – {{ booking.end_at|date:'g:i A' }}</small></div>
+        <span class="booking-reschedule-arrow" aria-hidden="true">&#8594;</span>
+        <div class="booking-reschedule-new-time"><span>New appointment</span><strong>{{ new_start|date:'D, M j, Y' }}</strong><small>{{ new_start|date:'g:i A' }} – {{ new_end|date:'g:i A' }}</small></div>
+      </div>
+      <form method="post" class="booking-reschedule-actions">{% csrf_token %}<input type="hidden" name="start_at" value="{{ new_start_value }}"><button class="customer-outline-button" type="submit" name="back" value="1">Go back</button><button class="customer-primary-button" type="submit" name="confirm" value="1">Confirm reschedule</button></form>
+    </section>
+    {% else %}
+    <section class="booking-reschedule-card" aria-labelledby="new-time-title">
+      <div class="booking-reschedule-card-heading"><span aria-hidden="true">&#9719;</span><div><h2 id="new-time-title">Select a new time</h2><p>Available slots follow the provider’s schedule.</p></div></div>
+      {% if errors %}<div class="booking-reschedule-errors" role="alert">{% for error in errors %}<p>{{ error }}</p>{% endfor %}</div>{% endif %}
+      <form method="post" class="booking-reschedule-form" data-slots-url="{% url 'booking_reschedule_slots' booking.pk %}">{% csrf_token %}
+        <label for="reschedule-date">New appointment date</label>
+        <input id="reschedule-date" type="date" name="date" value="{{ selected_day|date:'Y-m-d' }}" min="{{ minimum_day|date:'Y-m-d' }}" required>
+        <label for="reschedule-slot">Available time slot</label>
+        <select id="reschedule-slot" name="start_at" required data-selected="{{ selected_start }}"><option value="">Choose an available time</option>{% for slot in slots %}{% with slot_value=slot|date:'Y-m-d\TH:i' %}<option value="{{ slot_value }}"{% if selected_start == slot_value %} selected{% endif %}>{{ slot|date:'g:i A' }}</option>{% endwith %}{% endfor %}</select>
+        <p class="booking-reschedule-duration">Your appointment will take {{ booking.duration_at_booking }} minutes. The complete service must fit within the available working hours.</p>
+        <button class="customer-primary-button" type="submit" data-review-button>Review reschedule <span aria-hidden="true">&rarr;</span></button>
+        <span class="booking-reschedule-loading" role="status" aria-live="polite" hidden>Loading available times…</span>
+      </form>
+    </section>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}
+{% block extra_js %}<script src="{% static 'booking-reschedule.js' %}" defer></script>{% endblock %}

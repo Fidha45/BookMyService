@@ -2,8 +2,6 @@
 {% load i18n admin_urls admin_list static %}
 
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'admin-service-management.css' %}"><link rel="stylesheet" href="{% static 'admin-services.css' %}">{% endblock %}
-{% block nav-sidebar %}{% endblock %}
-
 {% block breadcrumbs %}
   <div class="breadcrumbs"><a href="{% url 'admin:index' %}">Home</a><span aria-hidden="true"> › </span><span aria-current="page">Services</span></div>
 {% endblock %}

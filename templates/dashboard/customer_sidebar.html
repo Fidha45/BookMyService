@@ -1,0 +1,14 @@
+<aside id="customer-sidebar" class="customer-sidebar" aria-label="Customer sidebar">
+  <nav aria-label="Customer navigation">
+    <a class="{% if active_nav == 'home' %}is-active{% endif %}" href="{% url 'service_list' %}"><span aria-hidden="true">&#8962;</span>Home</a>
+    <a class="{% if active_nav == 'dashboard' %}is-active{% endif %}" href="{% url 'dashboard' %}"><span aria-hidden="true">&#9638;</span>Dashboard</a>
+    <a class="{% if active_nav == 'browse' %}is-active{% endif %}" href="{% url 'service_explore' %}"><span aria-hidden="true">&#8981;</span>Browse services</a>
+    <a class="{% if booking_view %}is-active{% endif %}" href="{% url 'dashboard' %}?view=bookings"><span aria-hidden="true">&#9638;</span>My bookings</a>
+    <a class="{% if active_nav == 'favourites' %}is-active{% endif %}" href="{% url 'favourites' %}"><span aria-hidden="true">&#9825;</span>Favourites{% if favourite_count %}<small>{{ favourite_count }}</small>{% endif %}</a>
+    <a class="{% if review_view %}is-active{% endif %}" href="{% url 'dashboard' %}?view=reviews"><span aria-hidden="true">&#9734;</span>Reviews</a>
+    <a class="{% if active_nav == 'profile' %}is-active{% endif %}" href="{% url 'profile' %}"><span aria-hidden="true">&#9823;</span>My profile</a>
+    <a class="{% if active_nav == 'settings' %}is-active{% endif %}" href="{% url 'profile' %}"><span aria-hidden="true">&#9881;</span>Settings</a>
+    <form method="post" action="{% url 'logout' %}" class="customer-sidebar-logout">{% csrf_token %}<button type="submit"><span aria-hidden="true">&#8674;</span>Log out</button></form>
+  </nav>
+</aside>
+<button class="customer-sidebar-backdrop" type="button" aria-label="Close navigation menu" hidden></button>

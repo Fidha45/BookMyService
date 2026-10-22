@@ -15,7 +15,7 @@
       </form>
     </div>
     <div class="explore-hero-art" aria-hidden="true">
-      <img src="{% static 'images/categories/home-cleaning.webp' %}" width="1254" height="1254" alt="">
+      <img src="{% static 'images/categories/home-cleaning-standard.jpg' %}" width="1536" height="1536" alt="">
       <div class="explore-proof"><span>✓</span><strong>{% if stats.verified_providers %}{{ stats.verified_providers }} verified professionals{% elif stats.providers %}{{ stats.providers }} local professionals{% else %}Find a local professional{% endif %}</strong></div>
     </div>
   </div>
@@ -28,7 +28,7 @@
 
 <section class="container explore-layout" id="results">
   <aside class="catalog-filters" aria-label="Filter services">
-    <form method="get" action="{% url 'service_explore' %}#results">
+    <form method="get" action="{% url 'service_explore' %}#results" data-live-search data-results-selector=".catalog-results .service-grid" data-count-selector=".catalog-results-heading h2" data-pagination-selector=".catalog-results .pagination-wrap">
       <div class="catalog-filter-heading"><h2>Filters</h2><a href="{% url 'service_explore' %}#results">Clear all</a></div>
       <label class="filter-search-label" for="catalog-query">Search</label>
       <input class="catalog-query" id="catalog-query" type="search" name="q" value="{{ filters.q }}" placeholder="Search services">
@@ -45,8 +45,8 @@
     </form>
   </aside>
 
-  <main class="catalog-results">
-    <div class="catalog-results-heading"><div><span class="eyebrow">LOCAL SERVICES</span><h2>{{ page.paginator.count }} service{{ page.paginator.count|pluralize }} found</h2></div>
+  <div class="catalog-results">
+    <div class="catalog-results-heading"><div><span class="eyebrow">LOCAL SERVICES</span><h2 aria-live="polite">{{ page.paginator.count }} service{{ page.paginator.count|pluralize }} found</h2></div>
       <div class="catalog-controls"><form method="get" action="{% url 'service_explore' %}#results" class="catalog-sort-form">
         {% for category in selected_categories %}<input type="hidden" name="category" value="{{ category }}">{% endfor %}
         {% for key,value in filters.items %}{% if key != 'category' and key != 'page' and key != 'sort' and key != 'view' %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endif %}{% endfor %}
@@ -67,6 +67,6 @@
       </article>{% empty %}<div class="empty-state explore-empty"><span class="empty-state-icon">⌕</span><strong>No services found</strong><span>Try changing your filters or search another category.</span><a class="btn btn-outline-primary" href="{% url 'service_explore' %}#results">Clear filters</a></div>{% endfor %}
     </div>
     {% if page.paginator.num_pages > 1 %}<nav class="pagination-wrap" aria-label="Service pages"><span>Page {{ page.number }} of {{ page.paginator.num_pages }}</span><div>{% if page.has_previous %}<a class="btn btn-outline-secondary" href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page={{ page.previous_page_number }}#results">← Previous</a>{% endif %}{% if page.has_next %}<a class="btn btn-outline-secondary" href="?{% if query_string %}{{ query_string }}&amp;{% endif %}page={{ page.next_page_number }}#results">Next →</a>{% endif %}</div></nav>{% endif %}
-  </main>
+  </div>
 </section>
 {% endblock %}

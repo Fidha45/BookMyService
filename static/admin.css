@@ -1,11 +1,11 @@
 /* BookMyService styling for Django's built-in admin. Kept isolated from app.css. */
 :root {
   color-scheme: light;
-  --bms-purple: #5d3ca0;
-  --bms-purple-dark: #432679;
-  --bms-lavender: #f4f0fb;
+  --bms-purple: #5d36d6;
+  --bms-purple-dark: #4822b9;
+  --bms-lavender: #f1edff;
   --bms-surface: #fff;
-  --bms-page: #f8f7fb;
+  --bms-page: #f5f6fb;
   --bms-text: #292438;
   --bms-muted: #706b7d;
   --bms-border: #e6e1ee;
@@ -175,6 +175,109 @@ button.default:hover, input[type=submit].default:hover, .submit-row input.defaul
   .submit-row input { float: none; }
   .login #content-main > form { padding: 16px; }
 }
+
+/* Consistent administrator sizing across dashboard, management and Django admin pages. */
+body { font-family:"DM Sans","Segoe UI",Arial,sans-serif; }
+#header { min-height:72px; gap:16px; padding:7px clamp(16px,2vw,28px); background:#fff; }
+#branding { gap:14px; }
+#branding h1 { font-size:1rem; }
+.admin-brand-mark { width:38px; height:38px; margin-right:9px; border-radius:11px; background:#5622df; font-size:1.35rem; }
+.admin-wordmark { font-size:1.1rem; }
+.bms-admin-search { flex:1 1 360px; max-width:620px; height:40px; border-radius:9px; }
+.bms-admin-search input { font-family:inherit; font-size:13px; }
+.bms-admin-search > span { font-size:21px; }
+.bms-admin-location { font-size:13px; }
+.bms-admin-notifications { width:38px; height:38px; font-size:21px; }
+.bms-admin-notifications svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.bms-account-avatar { width:40px; height:40px; flex-basis:40px; background:#6036d6; }
+.bms-account-menu summary { gap:9px; border-radius:10px; }
+.bms-account-identity strong { font-size:13px; }
+.bms-account-identity small { font-size:11px; }
+#content { padding:23px clamp(16px,2vw,28px) 36px; }
+#content h1 { margin-bottom:15px; font-size:clamp(1.45rem,1.9vw,1.8rem); }
+#content h2 { font-size:1.15rem; }
+.module h2,.module caption,.inline-group h2 { padding:11px 15px; font-size:.9rem; }
+.module table th,.module table td { padding:10px 12px; font-size:.78rem; }
+#result_list thead th { padding:10px 11px; font-size:.68rem; }
+#result_list tbody th,#result_list tbody td { padding:10px 11px; }
+#changelist-filter { min-width:180px; }
+.form-row { padding:12px 15px; }
+.bms-management { font-family:"DM Sans","Segoe UI",Arial,sans-serif; }
+.bms-management-heading { margin-bottom:22px; }
+.bms-management-heading h1 { font-size:clamp(1.45rem,1.9vw,1.8rem); }
+.bms-section-heading h2 { font-size:1.2rem; }
+
+@media(max-width:767px) {
+  #header { gap:8px; padding:6px 11px; }
+  #branding { gap:8px; }
+  .admin-brand-mark { width:33px; height:33px; margin-right:6px; }
+  .admin-wordmark { font-size:.98rem; }
+  .bms-admin-search { flex:1 1 120px; min-width:90px; height:36px; padding:0 8px; }
+  .bms-admin-search input { font-size:11px; }
+  .bms-admin-notifications { width:32px; }
+  .bms-account-avatar { width:34px; height:34px; flex-basis:34px; }
+  #content { padding:16px 12px 26px; }
+  #content h1 { font-size:1.4rem; }
+}
+@media(max-width:560px) {
+  #branding h1 .admin-wordmark { display:none; }
+  .bms-admin-search { min-width:70px; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Shared administrator workspace navigation and header. */
+#header { position:sticky; top:0; min-height:68px; padding:7px 24px; background:#fff; box-shadow:0 1px 0 var(--bms-border); }
+#branding { display:flex; flex:1 1 auto; min-width:0; align-items:center; gap:20px; }
+#branding h1 { flex:0 0 auto; }
+#branding h1 a { color:#17152f; }
+.admin-wordmark { color:#17152f; }
+.admin-wordmark span { color:#6030e8; }
+.admin-brand-mark { background:#4f16e8; box-shadow:none; }
+#bms-admin-nav-toggle { display:grid; flex:0 0 28px; width:28px; height:34px; place-items:center; border:0; background:transparent; color:#44416b; font-size:21px; cursor:pointer; }
+.bms-admin-search { display:flex; flex:1 1 480px; align-items:center; gap:10px; max-width:740px; height:42px; margin:0 auto; padding:0 13px; border:1px solid #dddff4; border-radius:9px; background:#f8f8fd; color:#635f82; }
+.bms-admin-search span { font-size:20px; }
+.bms-admin-search input { width:100%; min-width:0; border:0; outline:0; background:transparent; color:#282544; font:inherit; font-size:13px; }
+.bms-admin-search input::placeholder { color:#77748f; }
+.bms-admin-location { flex:none; color:#282544; font-size:13px; font-weight:650; white-space:nowrap; }
+.bms-admin-notifications { position:relative; display:grid; flex:none; width:38px; height:38px; place-items:center; border-left:1px solid var(--bms-border); color:#403b65; font-size:19px; text-decoration:none; }
+.bms-admin-notifications i { position:absolute; top:-1px; right:0; display:grid; min-width:17px; height:17px; place-items:center; border-radius:20px; background:#e62f3d; color:white; font-size:9px; font-style:normal; }
+#user-tools.bms-user-tools { flex:none; margin-left:10px; color:#282544; }
+.bms-account-menu summary { border-color:transparent; color:#282544; }
+.bms-account-menu summary:hover,.bms-account-menu[open] summary { border-color:#e9e3fb; background:#faf8ff; }
+.bms-account-avatar { background:#4f16e8; }
+.bms-account-identity strong { color:#282544; }
+.bms-account-identity small,.bms-account-caret { color:#77748f; }
+#content-start { width:100%; max-width:none; min-width:0; margin:0; }
+#content { max-width:1600px; margin:0 auto; padding:25px clamp(18px,2vw,34px) 40px; }
+body.bms-admin-nav-collapsed #main { grid-template-columns:0 minmax(0,1fr); }
+body.bms-admin-nav-collapsed .bms-admin-sidebar { display:none; }
+@media(max-width:1100px) { .bms-admin-search { max-width:480px; }.bms-account-identity { display:none; } }
+@media(max-width:900px) {
+  #header { gap:8px; padding:6px 12px; }
+  #branding { gap:8px; }
+  .bms-admin-search { flex:1 1 auto; height:38px; }
+  .bms-admin-location { display:none; }
+  #content { padding:19px 14px 30px; }
+}
+@media(max-width:560px) { .admin-brand-mark { width:31px;height:31px;margin-right:6px;border-radius:9px;font-size:1.05rem; }.admin-wordmark { font-size:.95rem; }.bms-admin-search { padding:0 8px; }.bms-admin-search input { font-size:10px; }.bms-admin-notifications { width:31px; }.bms-account-menu summary { padding:2px; }.bms-account-avatar { width:31px;height:31px;flex-basis:31px; } }
+
+/* Shared admin shell: the header spans above the sidebar and page content. */
+#header { position:sticky; top:0; z-index:80; width:100%; height:68px; min-height:68px; box-sizing:border-box; margin:0; }
+#main { display:grid; grid-template-columns:264px minmax(0,1fr); min-height:calc(100vh - 68px); margin:0; }
+.bms-admin-sidebar { position:sticky; top:68px; grid-column:1; height:calc(100vh - 68px); box-sizing:border-box; }
+#content-start { grid-column:2; width:100%; max-width:none; min-width:0; margin:0; }
+#content { max-width:none; }
+#footer { margin-left:0; }
+@media(max-width:1250px) and (min-width:901px) { #main { grid-template-columns:230px minmax(0,1fr); } }
+@media(max-width:900px) {
+  #header { height:60px; min-height:60px; }
+  #main { display:block; min-height:calc(100vh - 60px); }
+  .bms-admin-sidebar { position:fixed; z-index:70; top:60px; left:0; height:calc(100dvh - 60px); transform:translateX(-105%); }
+  body.bms-admin-nav-open .bms-admin-sidebar { transform:translateX(0); }
+  body.bms-admin-nav-open .bms-admin-backdrop { position:fixed; z-index:65; inset:60px 0 0; display:block; width:100%; height:calc(100dvh - 60px); border:0; background:#17142a75; }
+}
+
+
+/* Match the dashboard navigation rhythm on every Django admin page. */
