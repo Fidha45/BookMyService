@@ -17,7 +17,17 @@ if not SECRET_KEY:
         raise RuntimeError("SECRET_KEY must be set when DEBUG=False.")
     SECRET_KEY = "local-development-key-only-do-not-deploy-4827"
 render_external_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME", "").strip()
-default_allowed_hosts = render_external_hostname or ("localhost,127.0.0.1" if DEBUG else "")
+vercel_hosts = [
+    os.getenv(name, "").strip()
+    for name in ("VERCEL_PROJECT_PRODUCTION_URL", "VERCEL_URL")
+    if os.getenv(name, "").strip()
+]
+if DEBUG:
+    default_allowed_hosts = "localhost,127.0.0.1"
+elif os.getenv("VERCEL_URL") or os.getenv("VERCEL_PROJECT_PRODUCTION_URL"):
+    default_allowed_hosts = ",".join([".vercel.app", *vercel_hosts])
+else:
+    default_allowed_hosts = render_external_hostname
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("ALLOWED_HOSTS", default_allowed_hosts).split(",") if h.strip()]
 if not DEBUG:
     if len(SECRET_KEY) < 50 or SECRET_KEY == "replace-with-a-long-random-secret":
@@ -59,7 +69,7 @@ if database_url.startswith(("postgres://", "postgresql://")):
             "PASSWORD": unquote(parsed.password or ""),
             "HOST": parsed.hostname or "",
             "PORT": parsed.port or "5432",
-            "CONN_MAX_AGE": 60,
+            "CONN_MAX_AGE": 0 if (os.getenv("VERCEL_URL") or os.getenv("VERCEL_PROJECT_PRODUCTION_URL")) else 60,
             "OPTIONS": {"sslmode": os.getenv("DB_SSLMODE", "prefer")},
         }
     }
@@ -116,15 +126,15 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() in {"true", "1", "yes"}
 EMAIL_TIMEOUT = int(os.getenv("EMAIL_TIMEOUT", "10"))
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "BookMyService <no-reply@bookmyservice.local>")
-SITE_URL = os.getenv("SITE_URL", "") or (f"https://{render_external_hostname}" if render_external_hostname else "")
+production_hostname = render_external_hostname or os.getenv("VERCEL_PROJECT_PRODUCTION_URL", "").strip() or os.getenv("VERCEL_URL", "").strip()
+SITE_URL = os.getenv("SITE_URL", "").strip() or (f"https://{production_hostname}" if production_hostname else "")
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND") or (
     "django.core.mail.backends.console.EmailBackend" if DEBUG and not EMAIL_HOST
     else "django.core.mail.backends.smtp.EmailBackend"
 )
 if not DEBUG:
-    if render_external_hostname:
-        # Render terminates TLS at its proxy and forwards the original scheme.
-        SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # Render and Vercel terminate TLS at their edge and forward the original scheme.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = os.getenv("SECURE_SSL_REDIRECT", "True").lower() == "true"
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
