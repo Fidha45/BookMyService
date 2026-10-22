@@ -80,6 +80,9 @@ def service_list(request, explore=False):
         "laptop-computer-repair": "images/services/Laptop repair.png",
         "photography": "images/services/Portrait photography.png",
         "website-development": "images/services/Website development.png",
+        "carpentry": "images/services/Carpentry.jpg",
+        "home-renovation": "images/services/Home renovation.jpg",
+        "pest-control": "images/services/pest control.jpg",
     }
     illustrated_categories = set(category_artwork_files)
     category_artwork = {
