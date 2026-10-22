@@ -2,14 +2,15 @@ import os
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-# Load the optional local .env without overriding variables supplied by the host.
-env_file = BASE_DIR / ".env"
-if env_file.exists():
-    for line in env_file.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line and not line.startswith("#") and "=" in line:
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+# Load local Vercel variables first, then ordinary development variables. Values
+# already supplied by the process or hosting platform always take precedence.
+for env_file in (BASE_DIR / ".env.local", BASE_DIR / ".env"):
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
 DEBUG = os.getenv("DEBUG", "False").lower() in {"true", "1", "yes"}
 SECRET_KEY = os.getenv("SECRET_KEY")
 if not SECRET_KEY:
@@ -86,10 +87,11 @@ elif os.getenv("DB_ENGINE", "").lower() == "mysql":
         }
     }
 else:
+    sqlite_database_path = os.getenv("SQLITE_DB_PATH", "").strip()
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+            "NAME": Path(sqlite_database_path).expanduser() if sqlite_database_path else BASE_DIR / "db.sqlite3",
             "OPTIONS": {"timeout": 30},
         }
     }
@@ -109,9 +111,21 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [BASE_DIR / "static"]
-STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"}, "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
+blob_token = os.getenv("BLOB_READ_WRITE_TOKEN", "").strip()
+if os.getenv("VERCEL") == "1" and not blob_token:
+    raise RuntimeError("Create a Vercel Blob store and set BLOB_READ_WRITE_TOKEN before deploying.")
+default_file_storage = (
+    "config.storage.VercelBlobStorage" if blob_token
+    else "django.core.files.storage.FileSystemStorage"
+)
+STORAGES = {"default": {"BACKEND": default_file_storage}, "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"}}
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", "").split(",")
+    if origin.strip()
+]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "login"
 RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "")

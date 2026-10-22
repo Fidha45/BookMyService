@@ -76,6 +76,7 @@ The local `.env` file is read unless the process already defines the same variab
 | `ALLOWED_HOSTS` | Comma-separated hostnames |
 | `RENDER_EXTERNAL_HOSTNAME` | Automatically supplied by Render; used as the production allowed host, HTTPS proxy signal, and default `SITE_URL` |
 | `DATABASE_URL` | Optional PostgreSQL URL (`postgresql://user:password@host:5432/db`) |
+| `SQLITE_DB_PATH` | Optional SQLite database path for working on a separate copy during data migration |
 | `DB_SSLMODE` | Optional PostgreSQL SSL mode, defaults to `prefer` |
 | `DB_ENGINE` | Optional `mysql` to use the MySQL connection variables below |
 | `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | MySQL connection details when `DB_ENGINE=mysql` |
@@ -88,8 +89,57 @@ The local `.env` file is read unless the process already defines the same variab
 | `RAZORPAY_KEY_ID` | Razorpay test/live key identifier |
 | `RAZORPAY_KEY_SECRET` | Razorpay API secret, used only by the server |
 | `RAZORPAY_WEBHOOK_SECRET` | Signing secret configured for the Razorpay webhook |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for persistent public provider and service images |
+| `CSRF_TRUSTED_ORIGINS` | Optional comma-separated HTTPS origins for custom domains or cross-origin form posts |
 
 With `DATABASE_URL` unset, the project uses `db.sqlite3`. Uploaded images are stored under `media/` in development. Production deployments should use durable object storage for uploads and a managed PostgreSQL database.
+
+## Deploy to Vercel (personal/demo use)
+
+Vercel currently detects Django from `manage.py`, uses `config.wsgi:application`, installs `requirements.txt`, collects files from `STATIC_ROOT`, and serves static files through its CDN. No `vercel.json`, Gunicorn, or custom build command is required for this project. `render.yaml` remains for Render and is not used by Vercel. Vercel Hobby is for personal, non-commercial use only; do not use it to operate a revenue-generating BookMyService business.
+
+Before importing the repository, create a Vercel project from the GitHub repository and add a Vercel Blob store in the project. The Blob store must be **public** because service and provider profile images are public. Vercel will provide `BLOB_READ_WRITE_TOKEN` to the project. The Django storage backend uploads new images there and stores each resulting URL in the model's image field. It does not delete the original local media files during migration. Public Blob URLs are appropriate for these profile/service images; do not use this backend for private documents.
+
+Add these project environment variables in Vercel Settings → Environment Variables for Preview and Production as needed:
+
+| Variable | Value |
+| --- | --- |
+| `DEBUG` | `False` |
+| `SECRET_KEY` | A private random value generated locally with `python -c "import secrets; print(secrets.token_urlsafe(64))"` |
+| `DATABASE_URL` | The pooled PostgreSQL connection URL from a Neon project connected through Vercel Marketplace |
+| `DB_SSLMODE` | `require` |
+| `BLOB_READ_WRITE_TOKEN` | Supplied by the Vercel Blob integration; keep it secret |
+| `SITE_URL` | Optional, your production URL including `https://` |
+| `CSRF_TRUSTED_ORIGINS` | Optional, comma-separated `https://` origins for a custom domain or cross-origin forms |
+
+The current settings derive Vercel hostnames from Vercel's system environment variables. If you set `ALLOWED_HOSTS` yourself, include every hostname you intend to serve. Same-origin forms on the Vercel project domain generally need no extra trusted origin; set `CSRF_TRUSTED_ORIGINS` for any custom or cross-origin HTTPS origins. Environment variable changes apply to newly created deployments, so redeploy after setting them.
+
+### Preserve SQLite data and uploaded media
+
+Do not assume `db.sqlite3` has already been copied to PostgreSQL. This repository's local SQLite database is currently behind the checked-in migrations, and the `.env` file selects MySQL instead. First decide which database is the source of truth and make a separate backup. For the SQLite source, work on a copy so the original file is not changed:
+
+```powershell
+Copy-Item .\db.sqlite3 .\db.vercel-export.sqlite3
+$env:DB_ENGINE = "sqlite"
+$env:DATABASE_URL = ""
+$env:SQLITE_DB_PATH = "$PWD\db.vercel-export.sqlite3"
+python manage.py migrate --noinput
+python manage.py dumpdata --natural-foreign --natural-primary --exclude contenttypes --exclude auth.permission --indent 2 --output .\vercel-data.json
+```
+
+Keep `vercel-data.json` private; it contains customer/provider records and password hashes. After setting up the empty Neon database, load the fixture only after applying the current schema migrations to Neon:
+
+```powershell
+python manage.py migrate --noinput
+python manage.py loaddata .\vercel-data.json
+python manage.py migrate_media_to_blob
+```
+
+For those commands, use environment variables for the Neon pooled `DATABASE_URL`, production `SECRET_KEY`, `DEBUG=False`, the database host, and Blob token. You can pull Vercel environment values into ignored `.env.local` with the Vercel CLI; this project loads `.env.local` for local management commands. Verify source and destination record counts and sign-in before relying on the imported data. The media command uploads referenced files from local `media/` to stable Blob paths and updates only image fields in the target PostgreSQL database. It can be run again after an interrupted transfer; it keeps the original files. It requires the fixture to be loaded, the media files to be present locally, and the target `DATABASE_URL` to point to PostgreSQL.
+
+Run database migrations as a deliberate one-off step after backing up the target database. Do not put them in the Vercel build command because Vercel may build several Preview and Production deployments. The booking migrations install `btree_gist` and create a PostgreSQL exclusion constraint; the destination must allow that extension. Do not consider deployment ready until migrations, imported row counts, image URLs, registration, booking conflicts, and CSRF-protected forms have been checked against the live URL.
+
+Vercel Hobby and the free Neon and Blob allowances can change. Check the current provider dashboards before relying on a quota for a public service. Neon is connected as an external provider; Vercel Postgres is no longer available for new projects.
 
 ## Deploy to Render
 
