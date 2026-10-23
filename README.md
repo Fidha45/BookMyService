@@ -1,122 +1,144 @@
 # BookMyService
 
-BookMyService is a Django application for discovering local services and managing customer bookings, provider schedules and reviews. Pages are rendered by Django templates; SQLite is configured for a local learning setup and PostgreSQL is supported for production.
+BookMyService is a Django web application for discovering local services and managing customer bookings, provider schedules, and reviews. It uses Django templates for the interface, SQLite for local development, and PostgreSQL for production.
 
 ## Features
 
-- Customers and providers can register with email and password. A public role selector never offers administrator access.
-- The public landing page uses a responsive lavender and purple service-booking layout, with database-backed search, popular categories, and optimized local category photography.
-- The dedicated `/explore/` catalog has responsive category shortcuts, provider/location/price/rating/working-day filters, real booking/rating/price/newest sorting, grid/list views, and customer favourites.
-- Customers search by keywords, category, provider, location, price, rating and provider working day, then choose a generated start time for a date and request a booking.
-- Service detail pages include provider hours, customer feedback, other listings from the provider, and similar active services matched by category or location.
-- Providers manage their profile, weekly hours, services, and booking status transitions.
-- Administrators use a responsive operations dashboard with live totals, searchable/paginated booking and user tables, provider review actions, category and user charts, captured payment totals, and links to Django Admin.
-- Reviews are unique per booking, rated 1–5, and restricted to the customer after completion.
-- Booking time and price are copied onto the booking record so service edits do not rewrite history.
-- Customers can save service/provider favourites, see persistent booking notifications, and download access-controlled PDF receipts.
-- Providers can block specific future date/time ranges in addition to recurring weekly hours.
+- Customers and providers can register with email and password. Public registration does not allow users to create administrator accounts.
+- Responsive landing page with a lavender and purple service-booking design, database-backed search, popular categories, and category photography.
+- Dedicated `/explore/` catalog with category shortcuts, provider/location/price/rating/working-day filters, sorting, grid/list views, and customer favourites.
+- Customers can search by keyword, category, provider, location, price, rating, and provider working day, then select an available start time and request a booking.
+- Service detail pages show provider hours, customer feedback, other listings from the provider, and similar active services.
+- Providers can manage their profile, weekly availability, services, blocked time ranges, and booking status transitions.
+- Administrators have an operations dashboard with booking and user tables, provider review actions, category and user charts, and links to Django Admin.
+- Reviews are rated from 1–5, limited to the customer after completion, and unique per booking.
+- Booking time and price are stored on the booking record so later service edits do not rewrite booking history.
+- Customers can save service/provider favourites, view booking notifications, and download access-controlled PDF booking confirmations.
 - Booking references, transition timestamps, repeated-submit protection, overlap checks, and customer/provider history are database-backed.
-- Provider matching uses deterministic location, budget, schedule, rating, and verification filters, with a visible fit score and reason breakdown for every result. No runtime AI is used.
-- A development-only `seed_demo_data` command creates realistic example providers and services for search, booking and dashboard demonstrations.
-- Razorpay order creation, server-side signature and captured-amount verification, and signed webhook processing are configurable; payments stay unconfirmed until verified.
-- Staff can verify providers and review date-filtered booking, category, service, status, and payment metrics.
+- Provider matching uses location, budget, schedule, rating, and verification filters, with a fit score and reason breakdown. No runtime AI is used.
+- A development-only `seed_demo_data` command creates example providers and services for local demonstrations.
+- Staff can verify providers and review booking, category, service, and status metrics.
 
-## Stack and structure
+## Technology Stack
 
-Python 3.11+, Django 5.x, SQLite locally, PostgreSQL in production, Django templates, Bootstrap 5 and a small custom stylesheet.
+- Python 3.11+
+- Django 5.x
+- SQLite for local development
+- PostgreSQL for production
+- Django templates
+- Bootstrap 5
+- HTML, CSS, and JavaScript
+
+## Project Structure
 
 ```text
-config/       settings, URL routing, ASGI/WSGI, middleware
-accounts/     custom user, provider profile, weekly availability, registration
-services/     service catalog, filtering, provider service management
-bookings/     booking model, lifecycle, booking and rescheduling rules
-reviews/      review model, form and customer workflow
-templates/    shared UI, catalog, dashboards and forms
-static/       responsive application styling
+config/       Settings, URL routing, ASGI/WSGI, middleware
+accounts/     Custom user, provider profile, weekly availability, registration
+services/     Service catalog, filtering, provider service management
+bookings/     Booking model, lifecycle, booking and rescheduling rules
+reviews/      Review model, form, and customer workflow
+templates/    Shared UI, catalog, dashboards, and forms
+static/       Responsive application styling
 ```
 
-## Data relationships
+## Data Relationships
 
-- `User` has a role; a provider user has one `ProviderProfile`.
+- A user has a role; a provider user has one provider profile.
 - A provider profile has weekly availability rows and services.
 - A service belongs to one category and provider.
-- A booking points to a customer and service, with stored start/end, price and duration snapshots.
-- A review has a one-to-one relationship with a booking and points to its author.
-- User and service records referenced by bookings use protective deletion behavior. Deactivate accounts/services to remove them from new discovery without erasing history.
+- A booking points to a customer and service and stores start/end time, price, and duration snapshots.
+- A review belongs to a booking and its author.
+- User and service records referenced by bookings use protective deletion behavior. Deactivate accounts or services to remove them from new discovery without erasing history.
 
-## Local setup
+## Local Setup (Windows / PowerShell)
 
-Prerequisites: Python 3.11 or newer. From the repository root in PowerShell:
+### Prerequisites
+
+Install Python 3.11 or newer. Run the following commands from the repository root:
 
 ```powershell
-py -m venv .venv # skip if .venv already exists
+py -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-Copy-Item .env.example .env # only if .env does not already exist
+Copy-Item .env.example .env
 python manage.py migrate
-python manage.py seed_demo_data # optional local assessment data; requires DEBUG=True
+python manage.py seed_demo_data
 python manage.py collectstatic --noinput
-python manage.py createsuperuser # only if you do not already have an admin
+python manage.py createsuperuser
 python manage.py runserver
 ```
 
-If PowerShell blocks activation, omit the activation line and replace `python` with `.\.venv\Scripts\python.exe`. Keep the `runserver` PowerShell window open while using the site. Stop it with `Ctrl+C`; run other management commands in a second PowerShell window.
-Open http://127.0.0.1:8000/. Use `/admin/` to create categories before providers publish services. Provider profile and hours are at `/accounts/provider/settings/`. Create administrators with `createsuperuser`; never expose an admin role in public registration.
+Skip virtual-environment creation if `.venv` already exists. Skip copying `.env.example` if `.env` already exists, and skip `createsuperuser` if an administrator account already exists.
 
-`seed_demo_data` is for local assessment demos only and refuses to run with `DEBUG=False`. On first run, it creates six demo provider accounts and nine example services from the brief, then prints their emails and a generated temporary password. Do not use or deploy these demo accounts in production. The command is safe to rerun; it leaves existing passwords and service records unchanged.
+If PowerShell blocks environment activation, omit the activation command and use `.\.venv\Scripts\python.exe` instead of `python`.
 
-The local `.env` file is read unless the process already defines the same variable. The checked-in example enables `DEBUG=True` for local HTTP development. Django defaults to `DEBUG=False` if the setting is absent; in that mode startup requires a private random `SECRET_KEY` of at least 50 characters, exact `ALLOWED_HOSTS`, and an explicit PostgreSQL or MySQL configuration. Replace the sample secret before using the app beyond local development.
+Keep the terminal running `runserver` open while using the app. Stop the server with `Ctrl+C`.
+
+Open `http://127.0.0.1:8000/`. Django Admin is available at `/admin/`. Provider profile and hours are available at `/accounts/provider/settings/`.
+
+The `seed_demo_data` command is for local assessment demonstrations only and requires `DEBUG=True`. It creates example provider accounts and services and prints generated demo credentials. Do not deploy these demo accounts or use them for real users. The command is optional; you can create accounts and services manually.
+
+The local `.env` file is loaded unless a variable is already defined in the process environment. The example configuration enables `DEBUG=True` for local HTTP development. For production, use `DEBUG=False`, a private random `SECRET_KEY` of at least 50 characters, exact allowed hostnames, and a configured server database.
+
+**Never commit `.env` or other secrets to Git.**
 
 ## Configuration
 
+Use only the variables required for your environment.
+
 | Variable | Purpose |
-| --- | --- |
-| `SECRET_KEY` | Django signing key; set a random value outside local development |
-| `DEBUG` | Set `False` in production |
-| `ALLOWED_HOSTS` | Comma-separated hostnames |
-| `RENDER_EXTERNAL_HOSTNAME` | Automatically supplied by Render; used as the production allowed host, HTTPS proxy signal, and default `SITE_URL` |
-| `DATABASE_URL` | Optional PostgreSQL URL (`postgresql://user:password@host:5432/db`) |
-| `SQLITE_DB_PATH` | Optional SQLite database path for working on a separate copy during data migration |
-| `DB_SSLMODE` | Optional PostgreSQL SSL mode, defaults to `prefer` |
-| `DB_ENGINE` | Optional `mysql` to use the MySQL connection variables below |
-| `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | MySQL connection details when `DB_ENGINE=mysql` |
-| `TIME_ZONE` | Django timezone, defaults to `Asia/Kolkata` |
-| `SITE_URL` | Optional public base URL used for links in booking emails |
-| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | SMTP connection details |
-| `EMAIL_USE_TLS`, `EMAIL_TIMEOUT`, `DEFAULT_FROM_EMAIL` | SMTP security, timeout, and sender settings |
-| `EMAIL_BACKEND` | Optional Django email backend override; local development defaults to the console backend |
-| `SECURE_SSL_REDIRECT` | Production HTTPS redirect (defaults on when `DEBUG=False`) |
-| `RAZORPAY_KEY_ID` | Razorpay test/live key identifier |
-| `RAZORPAY_KEY_SECRET` | Razorpay API secret, used only by the server |
-| `RAZORPAY_WEBHOOK_SECRET` | Signing secret configured for the Razorpay webhook |
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for persistent public provider and service images |
-| `CSRF_TRUSTED_ORIGINS` | Optional comma-separated HTTPS origins for custom domains or cross-origin form posts |
+|---|---|
+| `SECRET_KEY` | Django signing key; use a private random value outside local development. |
+| `DEBUG` | Set to `False` in production. |
+| `ALLOWED_HOSTS` | Comma-separated hostnames, if configured explicitly. |
+| `DATABASE_URL` | Optional PostgreSQL connection URL. When unset, the project normally uses SQLite unless another database engine is configured. |
+| `SQLITE_DB_PATH` | Optional SQLite database path, useful when working on a separate database copy. |
+| `DB_SSLMODE` | PostgreSQL SSL mode; production deployments should use `require`. |
+| `DB_ENGINE` | Set to `mysql` when using the optional MySQL configuration. |
+| `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` | MySQL connection details when `DB_ENGINE=mysql`. |
+| `TIME_ZONE` | Application timezone; defaults to `Asia/Kolkata`. |
+| `SITE_URL` | Optional public base URL used in booking emails. |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` | SMTP connection settings. |
+| `EMAIL_USE_TLS`, `EMAIL_TIMEOUT`, `DEFAULT_FROM_EMAIL` | SMTP transport and sender settings. |
+| `EMAIL_BACKEND` | Optional Django email backend override; local development defaults to the console backend. |
+| `SECURE_SSL_REDIRECT` | HTTPS redirect setting; enabled by default when `DEBUG=False`. |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob token for persistent public service and provider images. Keep it secret. |
+| `CSRF_TRUSTED_ORIGINS` | Optional comma-separated HTTPS origins for custom domains or cross-origin form posts. |
 
-With `DATABASE_URL` unset, the project uses `db.sqlite3`. Uploaded images are stored under `media/` in development. Production deployments should use durable object storage for uploads and a managed PostgreSQL database.
+With `DATABASE_URL` unset, the project normally uses `db.sqlite3`. Uploaded images are stored under `media/` during local development. Production deployments should use durable object storage for uploads and a managed PostgreSQL database.
 
-## Deploy to Vercel (personal/demo use)
+## Deploy to Vercel
 
-Vercel currently detects Django from `manage.py`, uses `config.wsgi:application`, installs `requirements.txt`, collects files from `STATIC_ROOT`, and serves static files through its CDN. No `vercel.json`, Gunicorn, or custom build command is required for this project. `render.yaml` remains for Render and is not used by Vercel. Vercel Hobby is for personal, non-commercial use only; do not use it to operate a revenue-generating BookMyService business.
+The project is configured for Vercel deployment using `manage.py`, `config.wsgi:application`, `requirements.txt`, and Django static-file collection. Review the current Vercel project settings before deployment.
 
-Before importing the repository, create a Vercel project from the GitHub repository and add a Vercel Blob store in the project. The Blob store must be **public** because service and provider profile images are public. Vercel will provide `BLOB_READ_WRITE_TOKEN` to the project. The Django storage backend uploads new images there and stores each resulting URL in the model's image field. It does not delete the original local media files during migration. Public Blob URLs are appropriate for these profile/service images; do not use this backend for private documents.
+### Required Setup
 
-Add these project environment variables in Vercel Settings → Environment Variables for Preview and Production as needed:
+1. Push approved project changes to the connected Git repository.
+2. Create or select the Vercel project connected to that repository.
+3. Connect a Vercel Blob store for public service and provider profile images.
+4. Configure the required environment variables in Vercel Settings → Environment Variables for the appropriate Preview and Production environments.
+5. Ensure `DATABASE_URL` points to the intended managed PostgreSQL database and `DB_SSLMODE=require`.
+6. Redeploy after changing environment variables.
+
+### Production Environment Variables
 
 | Variable | Value |
-| --- | --- |
+|---|---|
 | `DEBUG` | `False` |
-| `SECRET_KEY` | A private random value generated locally with `python -c "import secrets; print(secrets.token_urlsafe(64))"` |
-| `DATABASE_URL` | The pooled PostgreSQL connection URL from a Neon project connected through Vercel Marketplace |
+| `SECRET_KEY` | A private random value generated securely; never publish it. |
+| `DATABASE_URL` | The pooled PostgreSQL connection URL for the production database. |
 | `DB_SSLMODE` | `require` |
-| `BLOB_READ_WRITE_TOKEN` | Supplied by the Vercel Blob integration; keep it secret |
-| `SITE_URL` | Optional, your production URL including `https://` |
-| `CSRF_TRUSTED_ORIGINS` | Optional, comma-separated `https://` origins for a custom domain or cross-origin forms |
+| `BLOB_READ_WRITE_TOKEN` | Token supplied by the Vercel Blob integration. |
+| `SITE_URL` | Optional production URL, including `https://`. |
+| `CSRF_TRUSTED_ORIGINS` | Optional comma-separated HTTPS origins for custom domains or cross-origin form posts. |
 
-The current settings derive Vercel hostnames from Vercel's system environment variables. If you set `ALLOWED_HOSTS` yourself, include every hostname you intend to serve. Same-origin forms on the Vercel project domain generally need no extra trusted origin; set `CSRF_TRUSTED_ORIGINS` for any custom or cross-origin HTTPS origins. Environment variable changes apply to newly created deployments, so redeploy after setting them.
+The current settings derive Vercel hostnames from Vercel system environment variables. If you explicitly set `ALLOWED_HOSTS`, include every hostname the app must serve. Same-origin forms on the Vercel project domain generally do not need an additional trusted origin; configure `CSRF_TRUSTED_ORIGINS` for custom or cross-origin HTTPS forms.
 
-### Preserve SQLite data and uploaded media
+### Database and Media Migration
 
-Do not assume `db.sqlite3` has already been copied to PostgreSQL. This repository's local SQLite database is currently behind the checked-in migrations, and the `.env` file selects MySQL instead. First decide which database is the source of truth and make a separate backup. For the SQLite source, work on a copy so the original file is not changed:
+Do not assume the local `db.sqlite3` database has already been copied to PostgreSQL. Before migrating data, identify the source of truth, create a separate backup, and work on a copy of the source database. Keep exported fixtures private because they may contain user records and password hashes.
+
+The following commands illustrate exporting a copy of the local SQLite database:
 
 ```powershell
 Copy-Item .\db.sqlite3 .\db.vercel-export.sqlite3
@@ -127,7 +149,7 @@ python manage.py migrate --noinput
 python manage.py dumpdata --natural-foreign --natural-primary --exclude contenttypes --exclude auth.permission --indent 2 --output .\vercel-data.json
 ```
 
-Keep `vercel-data.json` private; it contains customer/provider records and password hashes. After setting up the empty Neon database, load the fixture only after applying the current schema migrations to Neon:
+Apply the current schema migrations to the destination database before loading a fixture. Load data and migrate media only after confirming that the active environment points to the intended destination database:
 
 ```powershell
 python manage.py migrate --noinput
@@ -135,39 +157,51 @@ python manage.py loaddata .\vercel-data.json
 python manage.py migrate_media_to_blob
 ```
 
-For those commands, use environment variables for the Neon pooled `DATABASE_URL`, production `SECRET_KEY`, `DEBUG=False`, the database host, and Blob token. You can pull Vercel environment values into ignored `.env.local` with the Vercel CLI; this project loads `.env.local` for local management commands. Verify source and destination record counts and sign-in before relying on the imported data. The media command uploads referenced files from local `media/` to stable Blob paths and updates only image fields in the target PostgreSQL database. It can be run again after an interrupted transfer; it keeps the original files. It requires the fixture to be loaded, the media files to be present locally, and the target `DATABASE_URL` to point to PostgreSQL.
+These commands are examples, not a substitute for verifying the current database configuration. Set the destination PostgreSQL `DATABASE_URL`, production `SECRET_KEY`, `DEBUG=False`, and Blob token securely in the environment.
 
-Run database migrations as a deliberate one-off step after backing up the target database. Do not put them in the Vercel build command because Vercel may build several Preview and Production deployments. The booking migrations install `btree_gist` and create a PostgreSQL exclusion constraint; the destination must allow that extension. Do not consider deployment ready until migrations, imported row counts, image URLs, registration, booking conflicts, and CSRF-protected forms have been checked against the live URL.
+Verify source and destination record counts, sign-in, image URLs, registration, booking conflicts, and CSRF-protected forms before relying on the deployment. The media migration command requires the fixture to be loaded and source media files to be present. It updates image fields in the target database and does not delete original local media files.
 
-Vercel Hobby and the free Neon and Blob allowances can change. Check the current provider dashboards before relying on a quota for a public service. Neon is connected as an external provider; Vercel Postgres is no longer available for new projects.
+Run database migrations as a deliberate one-off step after backing up the target database. Do not put migrations into a Vercel build command that may run for multiple Preview and Production deployments.
 
-## Deploy to Render
+The booking migrations include a PostgreSQL exclusion constraint using `btree_gist`. Verify that the destination database allows the required extension and that migrations complete successfully.
 
-The repository includes a Render Blueprint in `render.yaml`. After pushing the project to a Git repository, create a Blueprint in Render and select that repository. The Blueprint provisions the web service and PostgreSQL database, installs `requirements-production.txt`, collects static files, applies database migrations at startup, and runs the app with Gunicorn. Render generates `SECRET_KEY` and supplies the database connection and public hostname; keep `DEBUG=False` in production.
+Vercel, managed database, and object-storage quotas and terms can change. Check the provider dashboards for current limits and confirm that the deployment is appropriate for your intended use.
 
-`Procfile` provides the same Gunicorn web command for hosts that use Procfiles. `requirements-production.txt` includes the packages from `requirements.txt` plus Gunicorn. Local runserver logs match `*.log` in `.gitignore` and are not deployment files. Before accepting real provider uploads, configure durable object storage for `media/`; Render's service filesystem is not durable storage for user uploads.
+## Booking and Concurrency Design
 
-Booking request, status, cancellation, and reschedule emails are queued after the booking transaction commits. For local development, the default console backend prints emails in the runserver terminal. Configure the SMTP variables above to deliver email; a missing recipient address or mail server error does not undo a booking. The customer dashboard's booking records include a downloadable PDF confirmation. Providers can open **Earnings** from the navigation or dashboard to see estimates based on completed booking prices; this is booking value, not a payout statement and does not subtract fees, refunds, or taxes.
+Booking creation, rescheduling, and status transitions use database transactions and recheck availability while holding a provider-level lock. MySQL and PostgreSQL use `select_for_update()`; SQLite uses a provider lock-version write because SQLite ignores row-level `select_for_update()`.
 
-## Booking and concurrency design
+The overlap rule is:
 
-All new bookings, reschedules and status transitions are wrapped in `transaction.atomic()`. They serialize slot-affecting writes through the stable provider-profile row and recheck availability after acquiring the lock. MySQL and PostgreSQL use `select_for_update()`; SQLite increments a provider lock-version field as the first transaction write because SQLite ignores row-level `select_for_update()`. The overlap test is `existing.start < requested.end AND existing.end > requested.start`, allowing adjacent intervals while rejecting exact and partial overlaps. Pending, confirmed and in-progress bookings occupy time; rejected and cancelled bookings release it.
+`existing.start < requested.end AND existing.end > requested.start`
 
-Database safeguards supplement the application lock. MySQL migration `bookings.0005_mysql_booking_overlap_triggers` installs insert/update triggers that lock the provider row and reject overlapping active intervals, and prevents changing a service's provider after bookings exist. MySQL enforces one active payment per booking through a unique index on a stored generated nullable key (`active_booking_id`); failed/refunded attempts produce `NULL`, so payment history remains. Favourite uniqueness uses ordinary unique indexes on `(customer, service)` and `(customer, provider)`. MySQL allows repeated `NULL` values in those indexes, so separate target types remain possible while duplicate targets are rejected; the favourite target check constraint also requires MySQL 8.0.16 or newer. PostgreSQL migration `bookings.0004_booking_provider_lock_and_more` installs a GiST exclusion constraint using `btree_gist`; a PostgreSQL deployment must apply migrations with permission to create that extension. SQLite has no cross-row interval constraint, so its guarantee applies to booking writes through the application transaction service; the independent-connection race tests exercise this lock strategy. Rescheduling checks the new interval while holding the provider lock, excluding its own old booking, then changes the interval in the same transaction; failures preserve the original booking.
+Adjacent intervals are allowed, while exact and partial overlaps are rejected. Pending, confirmed, and in-progress bookings occupy a time slot; rejected and cancelled bookings release it.
 
-## API, security and deployment
+Rescheduling checks the new interval while holding the provider lock and preserves the original booking if the operation fails.
 
-This assessment version uses authenticated Django views and forms rather than adding a separate REST API. Django's CSRF middleware protects state-changing forms, ORM queries avoid SQL string construction, password validators and Django's password hashers protect credentials, and server-side object scoping checks customer/provider ownership. Public registration only permits customer/provider roles; admin access is provisioned separately. Production settings require explicit hosts, a strong secret and a server database, and enable secure cookies, HSTS, HTTPS redirection, and content-type protection. Custom 403, 404, and 500 pages prevent Django's debug pages from being served when `DEBUG=False`. Keep `.env` out of Git. `requirements-production.txt` adds Gunicorn and `Procfile` starts `config.wsgi:application`.
+Database safeguards vary by engine. The MySQL migration `bookings.0005_mysql_booking_overlap_triggers` installs insert/update triggers for overlapping active bookings and prevents changing a service's provider after bookings exist.
 
-### Render deployment preparation
+PostgreSQL migration `bookings.0004_booking_provider_lock_and_more` installs a GiST exclusion constraint using `btree_gist`; the database must permit that extension. SQLite does not provide a cross-row interval constraint, so its protection relies on the application's transaction service.
 
-The root `render.yaml` defines a Python web service and PostgreSQL database for a temporary assessment deployment. It builds static assets, runs migrations on service startup, generates the Django secret, derives the allowed host and HTTPS proxy settings from Render's `RENDER_EXTERNAL_HOSTNAME`, and uses the console email backend until SMTP credentials are added. After pushing this repository, create a Render Blueprint from it and review the resources before deploying. The included free Postgres plan expires 30 days after creation, so export data or upgrade before then; free web instances also sleep when idle. Uploaded media is not durable on a free web instance. The PostgreSQL booking exclusion-constraint migration must be verified on the created database before treating that deployment as double-booking safe.
+## Email, Receipts, and Provider Earnings
 
-After deployment, create the first administrator through the Render Shell with `python manage.py createsuperuser`, add categories and provider/service demo data, and verify registration, booking, provider approval, emails, and the PostgreSQL concurrency test. Configure SMTP and Razorpay test credentials separately if those integrations need to be demonstrated. The deployment has not yet been launched because this workspace has no GitHub or Render account connection.
+Booking request, status, cancellation, and rescheduling emails are queued after the booking transaction commits. During local development, the default console email backend prints email content in the runserver terminal. Configure SMTP variables to send real emails. Missing recipient details or a mail-server error does not undo a booking.
+
+Customers can download access-controlled PDF booking confirmations. Providers can view estimates based on completed booking prices in the Earnings area. These figures represent booking value, not a payout statement, and do not subtract fees, refunds, or taxes.
+
+## Security Notes
+
+This assessment version uses authenticated Django views and forms rather than a separate REST API. Django CSRF middleware protects state-changing forms, ORM queries avoid raw SQL string construction, password validators and Django password hashers protect credentials, and server-side object scoping checks customer/provider ownership.
+
+Public registration permits customer and provider roles only; administrator access is provisioned separately.
+
+Production settings require explicit hosts, a strong secret, and a server database. When `DEBUG=False`, production settings enable secure cookies, HSTS, HTTPS redirection, and content-type protection. Custom 403, 404, and 500 pages prevent Django debug pages from being served in production.
+
+Keep `.env`, database exports, credentials, and tokens out of Git.
 
 ## Tests
 
-Tests cover booking interval conflicts, cancelled slot reuse, lifecycle permissions, the two-hour customer cancellation cutoff, email notifications, PDF ownership, provider earnings scoping, completed/unique review rules, administrator provider review permissions, and dashboard search/filter/pagination/payment totals.
+Run these commands from the repository root:
 
 ```powershell
 python manage.py check
@@ -175,44 +209,35 @@ python manage.py makemigrations --check --dry-run
 python manage.py test --settings=config.test_settings
 ```
 
-The concurrent tests are `bookings.tests.RelationalBookingRaceTests`; they cover simultaneous HTTP booking requests for one slot, direct service-level booking/reschedule/cancellation races, different slots, and a direct insert against the database guard. These tests and the payment/favourite uniqueness tests passed against MySQL 8.0.33. The direct-constraint test is skipped on SQLite, which has no cross-row interval constraint. PostgreSQL migration/constraint execution still needs verification against a PostgreSQL server. SQLite's booking conflict protection relies on the transaction service rather than a database interval constraint.
+The test suite covers booking interval conflicts, cancelled-slot reuse, booking lifecycle permissions, the customer cancellation cutoff, email notifications, PDF ownership, provider earnings scoping, completed/unique review rules, administrator provider-review permissions, and dashboard search/filter/pagination.
 
-Razorpay setup is optional for browsing and booking. For test mode, add test credentials to the ignored local `.env`, configure a webhook at `/bookings/payments/razorpay/webhook/`, and set its signing secret in `RAZORPAY_WEBHOOK_SECRET`. Checkout/API calls were not tested with real credentials in this workspace.
+The concurrent test class is `bookings.tests.RelationalBookingRaceTests`. It covers simultaneous HTTP booking requests for one slot, service-level booking/rescheduling/cancellation races, different slots, and a direct insert against the database guard.
 
-## Screen recording outline (5–10 minutes)
+Project notes report these and related tests passing against MySQL 8.0.33; the direct-constraint test is skipped on SQLite. PostgreSQL migration, concurrency, and live deployment checks must be run against the actual production database before claiming those checks are complete.
 
-Use the outline below to record a walkthrough of the real app in your own voice.
+## Screen Recording Outline (5–10 Minutes)
 
-1. Introduce the catalog and search/filter results.
-2. Register a customer, view a service, request a future time and inspect the customer dashboard.
-3. Sign in as a provider, edit weekly hours/profile, add a service, and confirm/start/complete a request.
-4. Return as customer to cancel or reschedule a booking and submit a completed-service review.
-5. Show the slot conflict message for an overlapping request and the two-hour cancellation rule.
+Record a walkthrough of the actual application using your own voice:
+
+1. Introduce the catalog and demonstrate search and filters.
+2. Register a customer, open a service, request a future time, and inspect the customer dashboard.
+3. Sign in as a provider, edit the profile and weekly hours, add a service, and update a booking status.
+4. Return as the customer to cancel or reschedule a booking and submit a review after completion.
+5. Demonstrate the overlap warning for a conflicting booking and the cancellation cutoff.
 6. Open the administrator dashboard and Django Admin to manage categories and inspect bookings.
 
-Run `seed_demo_data` locally to create demo accounts/services, then use the credentials printed by the command only on your local machine. The seed command is optional; alternatively create accounts and service data manually. Never show `.env`, secrets, or demo passwords in the recording.
+Run `seed_demo_data` locally if you need demonstration data. Use the credentials printed by the command only on your local machine. Never show `.env`, secret values, database exports, or demo passwords in the recording.
 
-## Known limitations and next steps
+## Known Limitations
 
-- The booking form generates 30-minute-spaced start choices for one selected date. Providers can add blocked periods, but there is no month-grid calendar or scheduled reminder worker.
-- Provider management and dashboards are template based; there is no REST API.
-- Refund processing and tax/commission calculations are not implemented. Receipts show the stored booking price and verified payment state without inventing fees.
-- Location matching uses service/provider location text because the current schema has no geospatial service-area data.
-- Administrator verification is a manually managed flag; no external identity verification is connected.
-- PostgreSQL concurrency verification, browser/responsive review, and deployment validation remain to be run.
-- Production uploads need durable object storage; local media files are not a production storage solution.
-- A GitHub remote is configured. Public deployment and the candidate-recorded video are still pending.
+- The booking form generates start-time choices at 30-minute intervals for one selected date; it does not provide a month-grid calendar.
+- There is no scheduled reminder worker.
+- Provider management and dashboards are template-based; a separate REST API is not implemented.
+- Tax and commission calculations are not implemented.
+- Location matching uses provider/service location text; geospatial service-area data is not part of the current schema.
+- Administrator provider verification is manually managed; no external identity-verification service is connected.
+- PostgreSQL concurrency verification, browser/responsive review, and production deployment checks must be completed against the actual target environment.
+- Production uploads require durable object storage; local media files are not a production storage solution.
 
-## Assessment checklist
 
-| Area | Status |
-| --- | --- |
-| Customer/provider registration, login, profile and role dashboards | Implemented; automated tests pass |
-| Catalog, search, category/location/price filters and pagination | Implemented; automated tests pass |
-| Provider services, weekly hours, blocked periods and booking actions | Implemented; automated tests pass |
-| Booking snapshots/references, overlap checks, cancellation, reschedule, reviews | Implemented; automated tests pass |
-| Concurrent double-booking protection | MySQL overlap triggers and provider-row locking; simultaneous HTTP test passed on local MySQL 8.0.33; PostgreSQL verification pending |
-| Admin dashboard, reporting charts, provider verification and Django Admin | Implemented; system checks pass |
-| PostgreSQL production configuration and security settings | Implemented; Render Blueprint prepared, live deployment pending |
-| REST API | Not implemented; server-rendered flows used |
-| PostgreSQL race-test run, public deployment, screen recording | Pending; requires PostgreSQL/deployment access and candidate-recorded video |
+| Separate REST API | Not implemented; server-rendered Django flows are used. |
